@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Example terminal bell + message hook
+#
+# Environment variables available:
+#   FORGE_NOTIFICATION_ID — notification dispatch id
+#   FORGE_SLUG            — run slug
+#   FORGE_RUN_ID          — run identifier
+#   FORGE_WORKFLOW_ID     — workflow id
+#   FORGE_CURRENT_NODE    — current node id when the notification was prepared
+#   FORGE_STAGE           — alias for the current node id
+#   FORGE_MESSAGE         — the notification message (also passed as $1)
+#   FORGE_LEVEL           — COMPLETE, ESCALATE, or HUMAN_REVIEW
+#   FORGE_RUN_DIR         — run directory
+#   FORGE_SPEC_FILE       — frozen spec.json path
+#   FORGE_EVENTS_FILE     — append-only events.ndjson path
+
+LEVEL="${FORGE_LEVEL:-ESCALATE}"
+NODE="${FORGE_CURRENT_NODE:-${FORGE_STAGE:-unknown}}"
+MESSAGE="${1:-${FORGE_MESSAGE:-Workflow update}}"
+
+printf '\a'
+printf '[%s] slug=%s node=%s %s\n' \
+  "$LEVEL" \
+  "${FORGE_SLUG:-unknown}" \
+  "$NODE" \
+  "$MESSAGE"

@@ -1,0 +1,10 @@
+Write a concise human-readable consensus report from the packaged request, the reviewer findings, the audit result, and the accepted review findings artifact.
+
+Write the report as Markdown to the consensus_report output path listed under "# Output Paths" below. The report should include:
+
+1. **Accepted review outcome** — whether a bounded unattended fix slice was approved, whether the accepted outcome was "no worthwhile unattended slice remains", or whether a valid issue was intentionally not automated because the next local fix would exceed the component boundary
+2. **Accepted findings** — concise summary of the findings that were approved for remediation, or an explicit statement that none were accepted
+3. **Guardrail notes** — the component purpose, complexity budget signal, recommended next move, and any governance files that materially shaped the decision
+4. **Audit notes** — why the auditor accepted this review output and what it deliberately excluded
+
+Keep the report short and operator-friendly. It should help a later summary writer or human reviewer understand why the automation acted on this slice or intentionally stopped.

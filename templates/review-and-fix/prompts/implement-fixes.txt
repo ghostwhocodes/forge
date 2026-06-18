@@ -1,0 +1,12 @@
+Implement the accepted fixes inside the target repository according to the fix plan, the structured curated findings JSON artifact, and the frozen iteration policy. Keep the implementation scoped to the current slice.
+
+Do not fall back to writable mirrors, patch-only output, or alternate execution modes if the target repository is not actually writable in place from this session. Stop and report the environment blocker instead of working around it.
+
+Write the implementation report as Markdown to the implementation_report output path listed under "# Output Paths" below. The report should include:
+
+1. **Changes made** — list of files created, modified, or deleted with a one-line summary of each change
+2. **Commands run** — any build, test, or validation commands executed and their outcomes
+3. **Residual risks** — anything the implementer was unable to fully resolve or verify
+4. **Scope compliance** — confirmation that changes stayed within the fix plan scope, or explanation of any deviation
+
+Keep the report factual. Do not claim success for changes that were not actually made or verified.

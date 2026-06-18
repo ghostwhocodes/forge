@@ -1,0 +1,21 @@
+Judge whether the latest remediation slice resolves the structured curated findings JSON artifact using the fix plan, implementation report, evidence artifact, and the frozen iteration policy. This node decides only whether the current slice should be accepted, retried, replanned, or escalated. Do not also decide whether another broader round should run; that is the job of the iteration evaluation step.
+
+You MUST write a single JSON object to the judge_result output path listed under "# Output Paths" below. The object MUST contain at least these fields:
+
+```json
+{
+  "decision": "accept",
+  "rationale": "short explanation of the ruling"
+}
+```
+
+The `decision` field MUST be exactly one of:
+
+- `accept`  — the slice resolves the curated findings adequately
+- `retry`   — the implementation has fixable issues; retry the current plan
+- `replan`  — the approach is flawed; return to fix planning with a revised strategy
+- `escalate` — the situation requires human judgment or is beyond automated remediation
+
+Do not use any other value for `decision`. Downstream routing depends on this exact spelling.
+
+You may include additional fields (e.g. `issues_found`, `confidence`) but `decision` and `rationale` are required and must be top-level scalar values.

@@ -1,0 +1,18 @@
+{
+  "spec_version": 2,
+  "workflow_id": "parity_runtime",
+  "entry_node": "plan",
+  "source_spec_sha256": "7c0c1b86971bcb79f872c8d409fba1d1b7ac874a475b990246ead228465468ae",
+  "routing_mode": "structured",
+  "nodes": {
+    "plan": {
+      "id": "plan",
+      "kind": "command",
+      "route": {
+        "mode": "always",
+        "to": "complete"
+      }
+    }
+  },
+  "loops": []
+}

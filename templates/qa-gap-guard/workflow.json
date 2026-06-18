@@ -1,0 +1,208 @@
+{
+  "version": 2,
+  "tool_requirements": {
+    "all_of": ["bash", "codex"]
+  },
+  "routing_mode": "structured",
+  "workflow_id": "qa_gap_guard",
+  "entry_node": "detect_qa_gaps",
+  "interface": {
+    "inputs": ["request", "qa_governance"],
+    "exports": {}
+  },
+  "agents": {
+    "reviewer": {
+      "display_name": "QA Gap Reviewer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "writer": {
+      "display_name": "QA Summary Writer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "planner": {
+      "display_name": "Gap Closure Brief Writer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "coach": {
+      "display_name": "Engineering Feedback Writer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    }
+  },
+  "artifacts": {
+    "request": {
+      "path": "artifacts/request.json",
+      "media_type": "application/json",
+      "schema": "request_packet_v1"
+    },
+    "qa_governance": {
+      "path": "artifacts/qa-governance.json",
+      "media_type": "application/json",
+      "schema": "qa_governance_v1"
+    },
+    "qa_gap_findings": {
+      "path": "artifacts/qa-gap-findings.json",
+      "media_type": "application/json",
+      "schema": "qa_gap_findings_v1"
+    },
+    "qa_gap_summary": {
+      "path": "artifacts/qa-gap-summary.md",
+      "media_type": "text/markdown"
+    },
+    "selected_qa_gaps": {
+      "path": "artifacts/selected-qa-gaps.json",
+      "media_type": "application/json",
+      "schema": "selected_qa_gaps_v1"
+    },
+    "gap_closure_brief": {
+      "path": "artifacts/gap-closure-brief.md",
+      "media_type": "text/markdown"
+    },
+    "engineering_feedback": {
+      "path": "artifacts/engineering-feedback.md",
+      "media_type": "text/markdown"
+    }
+  },
+  "notifications": {
+    "default_hook": {
+      "path": "hooks/notify"
+    },
+    "human_review_hook": {
+      "path": "hooks/notify"
+    }
+  },
+  "nodes": [
+    {
+      "kind": "agent",
+      "id": "detect_qa_gaps",
+      "inputs": ["request", "qa_governance"],
+      "outputs": ["qa_gap_findings"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Detect meaningful QA and testing gaps",
+      "agent_id": "reviewer",
+      "prompt_file": "prompts/detect-qa-gaps.txt",
+      "route": { "mode": "always", "to": "write_qa_gap_summary" }
+    },
+    {
+      "kind": "agent",
+      "id": "write_qa_gap_summary",
+      "inputs": ["request", "qa_governance", "qa_gap_findings"],
+      "outputs": ["qa_gap_summary"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Summarize the QA gap findings for human curation",
+      "agent_id": "writer",
+      "prompt_file": "prompts/write-qa-gap-summary.txt",
+      "route": { "mode": "always", "to": "human_curate_gaps" }
+    },
+    {
+      "kind": "human",
+      "id": "human_curate_gaps",
+      "inputs": ["qa_gap_findings", "qa_gap_summary"],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Curate the QA gap findings",
+      "fields": [
+        {
+          "name": "gap_selection_status",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["accepted", "rescan", "complete"],
+          "description": "Choose whether to package selected QA gaps, rerun detection, or finish without a remediation package.",
+          "example": "accepted"
+        },
+        {
+          "name": "selected_gap_ids",
+          "required": true,
+          "kind": "csv",
+          "description": "Provide comma-separated gap ids or the literal value none.",
+          "example": "QA-GAP-001,QA-GAP-003"
+        },
+        {
+          "name": "selection_notes",
+          "required": true,
+          "kind": "string",
+          "description": "Explain which QA gaps are real, what should be deferred, and why.",
+          "example": "Package the rollback and status-surface gaps; defer the low-value wrapper assertions."
+        }
+      ],
+      "instructions": "Set gap_selection_status=accepted to package the selected QA gaps, gap_selection_status=rescan to rerun detection, or gap_selection_status=complete when no remediation package is needed. Always provide selected_gap_ids and selection_notes.",
+      "route": {
+        "mode": "by_field",
+        "field": "gap_selection_status",
+        "cases": [
+          { "equals": "accepted", "to": "capture_selection" },
+          { "equals": "rescan", "continue_loop": "rescan" },
+          { "equals": "complete", "to": "__complete__" }
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "id": "capture_selection",
+      "inputs": ["qa_gap_findings", "qa_gap_summary"],
+      "outputs": ["selected_qa_gaps"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Materialize the curated QA gaps",
+      "command_file": "scripts/capture-selection.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "write_gap_closure_brief" }
+    },
+    {
+      "kind": "agent",
+      "id": "write_gap_closure_brief",
+      "inputs": ["request", "qa_governance", "qa_gap_findings", "selected_qa_gaps"],
+      "outputs": ["gap_closure_brief"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Write the remediation brief for the selected QA gaps",
+      "agent_id": "planner",
+      "prompt_file": "prompts/write-gap-closure-brief.txt",
+      "route": { "mode": "always", "to": "write_engineering_feedback" }
+    },
+    {
+      "kind": "agent",
+      "id": "write_engineering_feedback",
+      "inputs": [
+        "request",
+        "qa_governance",
+        "qa_gap_findings",
+        "selected_qa_gaps",
+        "gap_closure_brief"
+      ],
+      "outputs": ["engineering_feedback"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Write the engineering self-improvement summary",
+      "agent_id": "coach",
+      "prompt_file": "prompts/write-engineering-feedback.txt",
+      "route": { "mode": "always", "to": "__complete__" }
+    }
+  ],
+  "loops": [
+    {
+      "id": "rescan",
+      "controller_node": "human_curate_gaps",
+      "entry_node": "detect_qa_gaps",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    }
+  ]
+}

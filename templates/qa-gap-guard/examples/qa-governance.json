@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "governance_id": "forge_sample_qa_governance",
+  "summary": "Typed QA governance seed for evaluating whether a repository's current evidence proves the behavior it relies on.",
+  "purpose": [
+    "Define which behavior classes require explicit proof before a change is considered confident.",
+    "Prefer functional evidence over raw coverage growth.",
+    "Give audit workflows a small typed contract for distinguishing meaningful QA gaps from low-value cleanup."
+  ],
+  "behavior_classes": [
+    {
+      "class": "happy_path_contract",
+      "priority": "high",
+      "expectation": "Core user-visible or runtime behavior should be covered by at least one direct proof of the intended outcome."
+    },
+    {
+      "class": "error_and_rollback",
+      "priority": "high",
+      "expectation": "Failure handling, rollback, and safety guards should be tested where partial state would be risky."
+    },
+    {
+      "class": "regression_invariant",
+      "priority": "high",
+      "expectation": "Previously discovered or architecture-sensitive invariants should have durable regression coverage."
+    },
+    {
+      "class": "adapter_boundary",
+      "priority": "medium",
+      "expectation": "External-system seams should expose deterministic tests for translation, parsing, or failure paths."
+    },
+    {
+      "class": "diagnostic_surface",
+      "priority": "medium",
+      "expectation": "Operator-visible diagnostics should be tested when they are part of the workflow contract."
+    }
+  ],
+  "gap_evaluation_rules": [
+    "Treat missing proof of a relied-on behavior as more important than low raw coverage in glue code.",
+    "A nearby or proxy test is not sufficient when it does not exercise the actual branch or behavior claim.",
+    "Prefer deterministic seam tests over privileged or environment-fragile validation when both are possible."
+  ],
+  "prevention_heuristics": [
+    "When adding rollback or safety logic, add a failure-path test in the same change.",
+    "When a behavior is hard to test meaningfully, introduce a seam instead of settling for indirect assertions.",
+    "When a review finds a confidence gap, capture the engineering pattern that allowed it to escape the original implementation."
+  ],
+  "workflow_usage": {
+    "detection_template": "qa-gap-guard",
+    "primary_inputs": [
+      "request",
+      "qa_governance"
+    ],
+    "expected_outputs": [
+      "qa_gap_findings",
+      "qa_gap_summary",
+      "selected_qa_gaps",
+      "gap_closure_brief",
+      "engineering_feedback"
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "id": "auto-review-and-fix",
+  "version": 1,
+  "display_name": "Auto Review And Fix",
+  "description": "Run unattended review and remediation rounds with internal review consensus, checkpoint commits after accepted fixes, and only a final human signoff.",
+  "workflow": "workflow.json",
+  "supports_intake": ["review_fix"],
+  "tags": ["review", "automation", "remediation"],
+  "recommended_hooks": ["hooks/notify"],
+  "recommended_outputs": {
+    "scaffold_dir": ".forge"
+  },
+  "prompt_files": [
+    "prompts/decide-round-action.txt",
+    "prompts/decide-rabbit-hole-check.txt",
+    "prompts/fix-plan.txt",
+    "prompts/implement-fixes.txt",
+    "prompts/verify-fix-round.txt",
+    "prompts/evaluate-iteration.txt",
+    "prompts/write-run-summary.txt",
+    "subruns/review-consensus/prompts/review-scan.txt",
+    "subruns/review-consensus/prompts/audit-review.txt",
+    "subruns/review-consensus/prompts/write-consensus-report.txt",
+    "subruns/rabbit-hole-check/prompts/investigate-rabbit-hole.txt"
+  ],
+  "hook_files": [
+    "hooks/notify"
+  ],
+  "script_files": [
+    "scripts/lib.sh",
+    "scripts/write-round-policy.sh",
+    "scripts/freeze-governance-context.sh",
+    "scripts/write-terminal-iteration-status.sh",
+    "scripts/checkpoint-start-state.sh",
+    "scripts/prepare-review-consensus-request.sh",
+    "scripts/write-accepted-round-iteration-status.sh",
+    "scripts/write-rabbit-hole-check-request.sh",
+    "scripts/write-skipped-rabbit-hole-check.sh",
+    "scripts/collect-evidence.sh",
+    "scripts/checkpoint-commit.sh",
+    "scripts/prepare-run-summary-context.sh"
+  ]
+}

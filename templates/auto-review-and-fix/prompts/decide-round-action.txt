@@ -1,0 +1,37 @@
+Decide whether the accepted output from the automated review-consensus child workflow should trigger another remediation slice or finish as already stable enough for this unattended session.
+
+Read the request, round policy, iteration status, accepted review findings, the structured audit result, and the consensus report. This node should not re-review the repository from scratch. Its job is only to decide whether the child workflow produced:
+
+- a bounded remediation slice worth implementing now
+- an explicit "no worthwhile slice remains" outcome
+- a real issue whose right response is contract simplification or design review rather than another local fix
+- a situation that should escalate instead of continuing automatically
+
+You MUST write a single JSON object to the round_gate_result output path listed under "# Output Paths" below. The object MUST contain at least these fields:
+
+```json
+{
+  "decision": "implement",
+  "rationale": "short explanation",
+  "design_boundary_hit": false,
+  "rabbit_hole_detected": false,
+  "recommended_human_follow_up": "none|simplify_contract|split_tool|design_review"
+}
+```
+
+The `decision` field MUST be exactly one of:
+
+- `implement` — the accepted review output contains a worthwhile bounded fix slice that still fits the component's operating window
+- `complete` — the accepted review output says no worthwhile unattended remediation slice remains, including design-boundary stops where another local patch would be the wrong engineering move
+- `escalate` — the child output is inconsistent, unsafe, or requires human judgment instead of more automation
+
+Do not use any other value for `decision`. Downstream routing depends on this exact spelling.
+
+Decision guidance:
+
+- return `implement` only when the accepted finding set is both real and complexity-budget compatible, or when a must-fix override is explicitly justified
+- return `complete` when the accepted outcome is "no worthwhile unattended slice remains" or when the remaining valid issue is real but the correct next move is `simplify_contract`, `split_tool`, or another non-local redesign step
+- return `escalate` when must-fix risk remains but design authority is required, when the child outputs conflict with each other, or when the automation boundary is unsafe to interpret without a human
+- prefer `complete` over `escalate` for design-boundary stops unless the risk profile is actively unsafe
+
+Set `design_boundary_hit=true` when the run is stopping because the next truthful fix would widen complexity beyond the intended component contract. Set `recommended_human_follow_up` to the smallest honest next move for the human reviewer. Use `rabbit_hole_detected=true` only if the accepted child output already shows the loop is drifting before a fix round is attempted.

@@ -1,0 +1,56 @@
+Decide whether another bounded review-and-fix round is still worthwhile after the latest accepted remediation slice. Read the request, latest review findings and summary, curated findings, fix plan, implementation report, evidence, judge result, and iteration policy.
+
+If re-entry context includes a prior `iteration_status` artifact, treat it as the cumulative round history for this run. Preserve that history, append the current round, and use it to detect short cycles where the accepted remediation slice does not converge. The most important patterns to catch are:
+
+- a two-stage oscillation where round N and round N-2 materially match while round N-1 represents the opposing complaint
+- a three-stage oscillation where the same small set of findings keeps rotating without net progress
+- repeated reopening of previously resolved findings after an accepted remediation slice
+
+Treat this node's current attempt number as the accepted-round counter: if there is no re-entry header, this is round 1; if the re-entry header says Attempt N for node 'evaluate_iteration', this is round N. Use that round number plus the current artifacts to derive explicit telemetry for this round.
+
+You MUST write a single JSON object to the iteration_status output path listed under "# Output Paths" below. The object MUST contain at least these fields:
+
+```json
+{
+  "round": 1,
+  "max_rounds": 4,
+  "remaining_round_continuations": 3,
+  "issues_closed_this_round": 2,
+  "remaining_issue_count_estimate": 3,
+  "new_issues_opened_this_round": 0,
+  "stalled_rounds": 0,
+  "scope_expanded": false,
+  "replan_count": 0,
+  "cycle_detected": false,
+  "cycle_length": 0,
+  "cycle_summary": "",
+  "review_history": [],
+  "recommended_next_action": "continue",
+  "reason": "short explanation"
+}
+```
+
+The `recommended_next_action` field MUST be exactly one of:
+
+- `continue`   — the latest slice succeeded, more meaningful work likely remains, scope is still local, and the iteration policy allows another round
+- `checkpoint`  — the policy says operator review is due, the scope widened, or the next slice is ambiguous enough that a human should choose
+- `complete`    — the accepted slice leaves no materially valuable next round for this session
+- `investigate_cycle` — the loop appears to be cycling and automation should trigger a wider investigation subrun before a human decides whether to continue
+- `escalate`    — the stalled-round budget is exhausted, a new high-severity issue changes the risk profile, or human judgment is required before safe continuation
+
+Do not use any other value for `recommended_next_action`. Downstream routing depends on this exact spelling.
+
+Set `remaining_round_continuations` to `max(max_rounds - round, 0)` using the
+frozen iteration policy. Treat this field as status telemetry for operators and
+later prompts; downstream loop routing is capped by one `outer_iteration`
+instance resolved from the frozen `iteration_policy.max_round_continuations`
+value, including human checkpoint continuations.
+
+Decision guidance:
+- return `continue` only when the latest slice succeeded, more meaningful work likely remains, the scope is still local, and the frozen iteration policy still allows another round
+- return `checkpoint` when the policy says operator review is due, the scope widened, or the next slice is ambiguous enough that a human should choose the next step
+- return `complete` when the accepted slice leaves no materially valuable next round for this session
+- return `investigate_cycle` when the history shows a likely two-stage or three-stage oscillation, repeated reopening of the same findings, or another clear sign that local fix slices are no longer converging
+- return `escalate` when the stalled-round budget is exhausted, a new high-severity issue changes the risk profile, or human judgment is required before any safe continuation and a wider investigation would not add value
+
+Keep the status artifact explicit and operational. Prefer concrete telemetry over vague prose, and keep the reason field short and specific.

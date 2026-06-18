@@ -1,0 +1,194 @@
+{
+  "version": 2,
+  "routing_mode": "structured",
+  "workflow_id": "software_loop",
+  "entry_node": "plan",
+  "agents": {
+    "planner": {
+      "display_name": "Planner",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "implementer": {
+      "display_name": "Implementer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "judge": {
+      "display_name": "Judge",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    }
+  },
+  "artifacts": {
+    "request": {
+      "path": "artifacts/request.json",
+      "media_type": "application/json",
+      "schema": "request_packet_v1"
+    },
+    "plan": {
+      "path": "artifacts/plan.md",
+      "media_type": "text/markdown"
+    },
+    "critique": {
+      "path": "artifacts/critique.md",
+      "media_type": "text/markdown"
+    },
+    "implementation_report": {
+      "path": "artifacts/implementation-report.md",
+      "media_type": "text/markdown"
+    },
+    "evidence": {
+      "path": "artifacts/evidence.json",
+      "media_type": "application/json",
+      "schema": "evidence_v1"
+    },
+    "judge_result": {
+      "path": "artifacts/judge.json",
+      "media_type": "application/json",
+      "schema": "judge_result_v1"
+    }
+  },
+  "notifications": {
+    "default_hook": {
+      "path": "notify-hook"
+    },
+    "human_review_hook": {
+      "path": "notify-hook"
+    }
+  },
+  "nodes": [
+    {
+      "kind": "agent",
+      "id": "plan",
+      "inputs": ["request"],
+      "outputs": ["plan"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Draft the implementation plan",
+      "agent_id": "planner",
+      "prompt_template": "Read the request artifact and write a concrete implementation plan. If re-entry context or decision context is present, revise the prior plan using that feedback instead of starting over. Keep it scoped and list the intended files.",
+      "route": { "mode": "always", "to": "critique" }
+    },
+    {
+      "kind": "agent",
+      "id": "critique",
+      "inputs": ["request", "plan"],
+      "outputs": ["critique"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Critique the plan",
+      "agent_id": "planner",
+      "prompt_template": "Critique the proposed plan against the request artifact. Focus on missing scope and unnecessary complexity.",
+      "route": { "mode": "always", "to": "human_review_plan" }
+    },
+    {
+      "kind": "human",
+      "id": "human_review_plan",
+      "inputs": ["request", "plan", "critique"],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Plan review required",
+      "fields": [
+        {
+          "name": "plan_status",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["approved", "rework"],
+          "description": "Choose whether to approve the plan or send it back for revision.",
+          "example": "approved"
+        }
+      ],
+      "instructions": "Set plan_status=approved to continue, or plan_status=rework to return to planning.",
+      "route": {
+        "mode": "by_field",
+        "field": "plan_status",
+        "cases": [
+          { "equals": "approved", "to": "implement" },
+          { "equals": "rework", "continue_loop": "plan_rework" }
+        ]
+      }
+    },
+    {
+      "kind": "agent",
+      "id": "implement",
+      "inputs": ["request", "plan"],
+      "outputs": ["implementation_report"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 3 },
+      "message": "Implement the approved plan",
+      "agent_id": "implementer",
+      "prompt_template": "Implement the approved plan. Work only from the request artifact and plan. Record what changed, what was tested, and any unresolved risks in the implementation report.",
+      "route": { "mode": "always", "to": "evidence" }
+    },
+    {
+      "kind": "command",
+      "id": "evidence",
+      "inputs": ["implementation_report"],
+      "outputs": ["evidence"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Collect evidence",
+      "command": ["bash", "-lc", "printf '{\"status\":\"collected\"}\\n' > \"$FORGE_OUTPUT_EVIDENCE\""],
+      "capture": "combined",
+      "route": { "mode": "always", "to": "judge" }
+    },
+    {
+      "kind": "judge",
+      "id": "judge",
+      "inputs": ["request", "plan", "implementation_report", "evidence"],
+      "outputs": ["judge_result"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Judge the result",
+      "agent_id": "judge",
+      "prompt_template": "Judge whether the implementation satisfies the request artifact and plan using the evidence artifact. Write a JSON result that includes at least decision and rationale.",
+      "decision_schema": "judge_result_v1",
+      "decision_fields": [
+        {
+          "name": "decision",
+          "allowed_values": ["accept", "retry", "replan", "escalate"]
+        }
+      ],
+      "route": {
+        "mode": "by_field",
+        "field": "decision",
+        "cases": [
+          { "equals": "accept", "to": "__complete__" },
+          { "equals": "retry", "continue_loop": "impl_retry" },
+          { "equals": "replan", "continue_loop": "replan" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    }
+  ],
+  "loops": [
+    {
+      "id": "plan_rework",
+      "controller_node": "human_review_plan",
+      "entry_node": "plan",
+      "budget": { "kind": "literal", "max_iterations": 3 },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "impl_retry",
+      "controller_node": "judge",
+      "entry_node": "implement",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "replan",
+      "controller_node": "judge",
+      "entry_node": "human_review_plan",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    }
+  ]
+}

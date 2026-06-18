@@ -1,0 +1,10 @@
+Read the request, review findings, review summary, the structured curated findings JSON artifact, and the frozen iteration policy. The curated findings artifact contains finding_selection_status, selected_finding_ids, and selection_notes. Produce a concrete fix plan scoped only to the accepted findings and keep the slice narrow enough to fit one bounded remediation round.
+
+Write the fix plan as Markdown to the fix_plan output path listed under "# Output Paths" below. The plan should include:
+
+1. **Scope** — which accepted findings this plan addresses and which files are involved
+2. **Steps** — ordered implementation steps with enough detail for an implementer to execute without re-reading the findings
+3. **Verification** — how to confirm each fix (commands, tests, manual checks)
+4. **Risks** — anything that could go wrong or require rollback
+
+Keep the plan concrete and actionable. Do not include findings outside the accepted set. Do not expand scope beyond the curated selection.

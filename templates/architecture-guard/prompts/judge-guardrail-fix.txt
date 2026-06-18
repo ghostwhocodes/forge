@@ -1,0 +1,27 @@
+Judge whether the implementation resolves the selected boundary findings while
+preserving the typed architecture contract, respecting the decommission ledger,
+and remaining coherent with the typed test-governance model.
+
+Write JSON to the `judge_result` artifact with exactly this structure:
+
+```json
+{
+  "decision": "accept",
+  "rationale": "concrete explanation tied to the governance artifacts and the implementation report",
+  "findings_resolved": ["list of finding ids that are now resolved"],
+  "findings_remaining": ["list of finding ids still open, if any"]
+}
+```
+
+The `decision` field must be exactly one of:
+
+- `accept` — all selected findings are resolved and the contract holds
+- `replan` — the direction is salvageable but the plan needs revision
+- `escalate` — the fix still weakens the architecture, revives a sunset path,
+  or leaves governance state ambiguous
+
+Do not emit placeholder text such as `accept | replan | escalate`; write one
+concrete allowed value.
+
+Prefer `replan` over `escalate` when the implementation is close but incomplete.
+Prefer `escalate` only when continued iteration cannot converge.

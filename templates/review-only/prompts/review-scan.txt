@@ -1,0 +1,1 @@
+Review the repository according to the request artifact. Produce a structured findings artifact with concrete issues, severity, file references, and suggested remediation direction.

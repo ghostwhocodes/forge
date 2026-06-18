@@ -1,0 +1,29 @@
+Decide whether the latest accepted remediation round should trigger a rabbit-hole investigation before the parent workflow considers another unattended round.
+
+Read the request, round policy, cumulative iteration status, the packaged review-consensus request, accepted review findings, the structured review audit result, implementation report, evidence, verification result, and checkpoint record.
+
+This node does not re-run review or redesign the system. It only decides whether the latest accepted round crossed the threshold where a wider design-drift investigation is warranted.
+
+You MUST write a single JSON object to the rabbit_hole_gate_result output path listed under "# Output Paths" below. The object MUST contain at least these fields:
+
+```json
+{
+  "decision": "skip_check",
+  "rationale": "short explanation",
+  "recommended_human_follow_up": "none|simplify_contract|split_tool|design_review"
+}
+```
+
+The `decision` field MUST be exactly one of:
+
+- `run_check` — the latest accepted round shows enough drift, reopening, or repeated focus that a rabbit-hole investigation should run now
+- `skip_check` — the latest accepted round does not yet justify the extra investigation
+
+Decision guidance:
+
+- read `round_policy.guardrails.auto_rabbit_hole_check_after_round` as the earliest accepted-round counter that should auto-trigger this guardrail when repeat-work or drift signals are present; if that field is missing or invalid, treat `2` as the default
+- return `run_check` when the accepted-round counter is at or beyond that configured threshold and the latest round opened new issues, repeated work on the same component, or produced audit metadata that suggests low-complexity drift or the wrong local response
+- return `run_check` when the likely next fix would need new modes, hidden state, recovery logic, or environment-coupled branching to keep patching locally
+- return `skip_check` when the latest round still looks like straightforward bounded convergence
+
+Keep the rationale concrete and short. `recommended_human_follow_up` should usually be `none` on `skip_check`; otherwise choose the smallest likely human follow-up if later rounds stall.

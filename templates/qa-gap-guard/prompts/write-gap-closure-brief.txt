@@ -1,0 +1,28 @@
+Read the request artifact, typed QA governance artifact, full QA gap findings,
+and the curated `selected_qa_gaps` artifact.
+
+Write a concise markdown remediation brief to the `gap_closure_brief` artifact
+for a later coding run.
+
+The brief must package the selected QA gaps as actionable closure work, not as
+another open-ended review request.
+
+Structure the brief as:
+
+1. **Objective** — what confidence should exist after this follow-up
+2. **Selected gaps** — one numbered item per selected gap id, restating the
+   real proof obligation in concrete terms
+3. **Implementation guidance** — what kind of tests, seams, or code-shape
+   changes are acceptable to close the gap
+4. **Acceptance checks** — the evidence that should exist before the later
+   coding run is considered done
+
+For each selected gap, translate the finding into:
+
+- the behavior to prove
+- the specific insufficiency in current evidence
+- the most direct closure strategy
+- any caution against broadening scope or papering over the gap with weak tests
+
+If no gaps were selected, write a short brief explaining that no remediation
+package is required.

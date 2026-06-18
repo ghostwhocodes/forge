@@ -1,0 +1,55 @@
+Decide whether another unattended auto-review-and-fix round is still worthwhile after the latest accepted remediation slice, checkpoint commit, and rabbit-hole decision path.
+
+Read the request, round policy, prior iteration status, accepted review findings, review audit result, fix plan, implementation report, evidence, judge result, checkpoint record, and rabbit-hole check report.
+
+If re-entry context includes a prior `iteration_status` artifact, treat it as the cumulative round history for this run. Preserve that history, append the current round, and use it to detect when the branch is converging versus when the remaining work is no longer a safe unattended slice.
+
+Treat this node's current attempt number as the accepted-round counter: if there is no re-entry header, this is round 1; if the re-entry header says Attempt N for node 'evaluate_iteration', this is round N.
+
+You MUST write a single JSON object to the iteration_status output path listed under "# Output Paths" below. The object MUST contain at least these fields:
+
+```json
+{
+  "round": 1,
+  "max_rounds": 5,
+  "issues_closed_this_round": 1,
+  "remaining_issue_count_estimate": 2,
+  "new_issues_opened_this_round": 0,
+  "stalled_rounds": 0,
+  "cycle_detected": false,
+  "rabbit_hole_detected": false,
+  "design_boundary_hit": false,
+  "same_component_rounds": 1,
+  "last_component_purpose": "short description of the subsystem most recently remediated",
+  "recommended_human_follow_up": "none|simplify_contract|split_tool|design_review",
+  "round_history": [
+    {
+      "round": 1,
+      "findings_addressed": ["F-001"],
+      "result": "accepted",
+      "impact_summary": "short explanation",
+      "component_purpose": "short description of the subsystem touched this round"
+    }
+  ],
+  "recommended_next_action": "continue",
+  "reason": "short explanation"
+}
+```
+
+The `recommended_next_action` field MUST be exactly one of:
+
+- `continue` — the latest slice succeeded, more meaningful work likely remains, the next slice is still bounded, no design-boundary stop is active, and the policy still allows another unattended round
+- `complete` — the latest accepted slice leaves no worthwhile unattended next round, including cases where valid remaining work should be handled by contract simplification or human design review instead of another patch
+- `escalate` — the round budget is exhausted, the risk changed materially, or human judgment is now required before any safe continuation
+
+Decision guidance:
+
+- return `continue` only when there is still material progress, a bounded next slice remains, and the rabbit-hole report does not recommend stopping for redesign
+- return `complete` when the accepted review process or rabbit-hole report indicates that no worthwhile unattended slice remains or that the run has reached a design boundary but is otherwise safe to hand to the final human summary/signoff path
+- return `escalate` when the current accepted round already equals `max_rounds` and more work still remains, a new high-severity issue changes the risk profile, or the child outputs are too inconsistent to hand off safely
+
+Use the rabbit-hole report to decide whether the loop is still sound. If that report says the component has drifted beyond its intended purpose, set `rabbit_hole_detected=true`, set `design_boundary_hit=true`, choose `recommended_human_follow_up` accordingly, and do not return `continue`.
+
+Preserve component-level telemetry across rounds. Keep `round_history` cumulative, include the current round's component description, and update `last_component_purpose` so future rabbit-hole checks can detect repeated work on the same subsystem.
+
+Keep the status artifact operational. Prefer explicit telemetry and short reasons over vague prose.

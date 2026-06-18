@@ -1,0 +1,24 @@
+Write the final unattended run summary for the completed auto-review-and-fix session.
+
+Read the request, round policy, cumulative iteration status, checkpoint history, accepted review findings, the structured review audit result, the child consensus report, the parent review-consensus summary artifact, and the packaged run_summary_context artifact.
+
+Write the summary as Markdown to the run_summary output path listed under "# Output Paths" below. The report should include:
+
+1. **Outcome** — whether the run stopped because the branch stabilized or because the automation boundary was reached
+2. **Rounds and checkpoints** — concise summary of each accepted round plus the checkpoint commits created during the run
+3. **Failures found and fixes applied** — what the reviewers considered real, how those issues were fixed, which checks were run on the latest accepted remediation slice, and which findings remained out of scope or closed as non-actionable
+4. **Guardrail decisions** — which governance context was present, whether any rabbit-hole check fired, which valid findings were intentionally not automated, whether the run stopped because it stabilized or because it hit a complexity-budget boundary, and what the human should decide next
+5. **Potential software impact** — operator-level summary of the behavior, risk, or subsystem impact of the accepted fixes
+6. **Residual risks and follow-up** — anything the final human reviewer should double-check before trusting the unattended result
+
+Use `run_summary_context` as the source of truth for the latest implementation report, collected evidence, verification result, remediated finding set from the latest accepted remediation round, and any rabbit-hole summary/report artifacts written after remediation.
+
+Treat `accepted_review_findings` as the final review-state artifact for the terminal cycle. It may legitimately be empty when the run stops because no further unattended slice remains, even if human-only or broader follow-up still exists.
+
+When `run_summary_context.last_remediated_findings_present` is `true`, use that preserved finding set when describing the latest accepted remediation slice. Do not replace it with the terminal `accepted_review_findings` artifact.
+
+If `run_summary_context.rabbit_hole_check_report_present` is `true`, use that report to explain why the loop continued or stopped. If it is `false` and `iteration_status.rabbit_hole_detected` or `iteration_status.design_boundary_hit` is `true`, explain that the run stopped at that guardrail before any rabbit-hole subrun executed, using `iteration_status.reason` and `iteration_status.recommended_human_follow_up` as the fallback source of truth. Only say that no rabbit-hole investigation was needed when neither a rabbit-hole report nor a pre-remediation guardrail stop is present.
+
+If `has_remediation_context` is `false`, say that the run completed without executing a remediation round.
+
+This report is for final human signoff. Optimize for traceability and fast human review, not for maximum verbosity.

@@ -1,0 +1,577 @@
+{
+  "version": 2,
+  "tool_requirements": {
+    "all_of": ["bash", "codex"]
+  },
+  "routing_mode": "structured",
+  "workflow_id": "review_and_fix",
+  "entry_node": "iteration_policy",
+  "interface": {
+    "inputs": ["request"],
+    "exports": {}
+  },
+  "agents": {
+    "reviewer": {
+      "display_name": "Reviewer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "writer": {
+      "display_name": "Findings Writer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "planner": {
+      "display_name": "Fix Planner",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "implementer": {
+      "display_name": "Fix Implementer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "judge": {
+      "display_name": "Judge",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "doc_writer": {
+      "display_name": "Doc Writer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    }
+  },
+  "artifacts": {
+    "request": {
+      "path": "artifacts/request.json",
+      "media_type": "application/json",
+      "schema": "request_packet_v1"
+    },
+    "review_findings": {
+      "path": "artifacts/review-findings.json",
+      "media_type": "application/json",
+      "schema": "review_findings_v1"
+    },
+    "review_summary": {
+      "path": "artifacts/review-summary.md",
+      "media_type": "text/markdown"
+    },
+    "curated_findings": {
+      "path": "artifacts/curated-findings.json",
+      "media_type": "application/json",
+      "schema": "curated_findings_v1"
+    },
+    "iteration_policy": {
+      "path": "artifacts/iteration-policy.json",
+      "media_type": "application/json",
+      "schema": "iteration_policy_v1"
+    },
+    "fix_plan": {
+      "path": "artifacts/fix-plan.md",
+      "media_type": "text/markdown"
+    },
+    "implementation_report": {
+      "path": "artifacts/implementation-report.md",
+      "media_type": "text/markdown"
+    },
+    "evidence": {
+      "path": "artifacts/evidence.json",
+      "media_type": "application/json",
+      "schema": "evidence_v1"
+    },
+    "judge_result": {
+      "path": "artifacts/judge.json",
+      "media_type": "application/json",
+      "schema": "judge_result_v1"
+    },
+    "iteration_status": {
+      "path": "artifacts/iteration-status.json",
+      "media_type": "application/json",
+      "schema": "iteration_status_v1"
+    },
+    "cycle_investigation_request": {
+      "path": "artifacts/cycle-investigation-request.json",
+      "media_type": "application/json"
+    },
+    "cycle_investigation_summary": {
+      "path": "artifacts/cycle-investigation-summary.md",
+      "media_type": "text/markdown"
+    },
+    "cycle_investigation_report": {
+      "path": "artifacts/cycle-investigation-report.md",
+      "media_type": "text/markdown"
+    },
+    "docs_report": {
+      "path": "artifacts/docs-report.md",
+      "media_type": "text/markdown"
+    }
+  },
+  "notifications": {
+    "default_hook": {
+      "path": "hooks/notify"
+    },
+    "human_review_hook": {
+      "path": "hooks/notify"
+    }
+  },
+  "nodes": [
+    {
+      "kind": "command",
+      "id": "iteration_policy",
+      "inputs": ["request"],
+      "outputs": ["iteration_policy"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Freeze the bounded iteration policy",
+      "command_file": "scripts/write-iteration-policy.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "review_scan" }
+    },
+    {
+      "kind": "agent",
+      "id": "review_scan",
+      "inputs": ["request", "iteration_policy"],
+      "outputs": ["review_findings"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Review the repository",
+      "agent_id": "reviewer",
+      "prompt_file": "prompts/review-scan.txt",
+      "route": { "mode": "always", "to": "write_findings" }
+    },
+    {
+      "kind": "agent",
+      "id": "write_findings",
+      "inputs": ["request", "review_findings"],
+      "outputs": ["review_summary"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Write review summary",
+      "agent_id": "writer",
+      "prompt_file": "prompts/write-findings.txt",
+      "route": { "mode": "always", "to": "human_curate_findings" }
+    },
+    {
+      "kind": "human",
+      "id": "human_curate_findings",
+      "inputs": ["review_findings", "review_summary"],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Curate discovered findings",
+      "fields": [
+        {
+          "name": "finding_selection_status",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["accepted", "rescan", "complete"],
+          "description": "Choose whether to continue with fixes, rerun the review scan, or finish without remediation.",
+          "example": "accepted"
+        },
+        {
+          "name": "selected_finding_ids",
+          "required": true,
+          "kind": "csv",
+          "description": "Provide comma-separated finding ids or the literal value none.",
+          "example": "F-201,F-204"
+        },
+        {
+          "name": "selection_notes",
+          "required": true,
+          "kind": "string",
+          "description": "Explain the curation decision for the selected findings.",
+          "example": "Fix the confirmed issue only."
+        }
+      ],
+      "instructions": "Set finding_selection_status=accepted to continue with fixes, finding_selection_status=rescan to rerun the review scan, or finding_selection_status=complete to finish without remediation. Always provide selected_finding_ids as a comma-separated list or none, plus selection_notes.",
+      "route": {
+        "mode": "by_field",
+        "field": "finding_selection_status",
+        "cases": [
+          { "equals": "accepted", "to": "capture_selection" },
+          { "equals": "rescan", "continue_loop": "rescan" },
+          { "equals": "complete", "to": "__complete__" }
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "id": "capture_selection",
+      "inputs": ["review_findings", "review_summary"],
+      "outputs": ["curated_findings"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Materialize curated findings for remediation",
+      "command_file": "scripts/capture-selection.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "fix_plan" }
+    },
+    {
+      "kind": "agent",
+      "id": "fix_plan",
+      "inputs": [
+        "request",
+        "review_findings",
+        "review_summary",
+        "curated_findings",
+        "iteration_policy"
+      ],
+      "outputs": ["fix_plan"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Plan the accepted fixes",
+      "agent_id": "planner",
+      "prompt_file": "prompts/fix-plan.txt",
+      "route": { "mode": "always", "to": "implement_fixes" }
+    },
+    {
+      "kind": "agent",
+      "id": "implement_fixes",
+      "inputs": ["request", "fix_plan", "curated_findings", "iteration_policy"],
+      "outputs": ["implementation_report"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 3 },
+      "message": "Implement the accepted fixes",
+      "agent_id": "implementer",
+      "prompt_file": "prompts/implement-fixes.txt",
+      "route": { "mode": "always", "to": "evidence" }
+    },
+    {
+      "kind": "command",
+      "id": "evidence",
+      "inputs": ["request", "implementation_report"],
+      "outputs": ["evidence"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Collect execution evidence",
+      "command_file": "scripts/collect-evidence.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "judge" }
+    },
+    {
+      "kind": "judge",
+      "id": "judge",
+      "inputs": [
+        "request",
+        "curated_findings",
+        "fix_plan",
+        "implementation_report",
+        "evidence",
+        "iteration_policy"
+      ],
+      "outputs": ["judge_result"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Judge the fixes",
+      "agent_id": "judge",
+      "prompt_file": "prompts/judge.txt",
+      "decision_schema": "judge_result_v1",
+      "decision_fields": [
+        {
+          "name": "decision",
+          "allowed_values": ["accept", "retry", "replan", "escalate"]
+        }
+      ],
+      "route": {
+        "mode": "by_field",
+        "field": "decision",
+        "cases": [
+          { "equals": "retry", "continue_loop": "impl_retry" },
+          { "equals": "replan", "continue_loop": "replan" },
+          { "equals": "accept", "to": "evaluate_iteration" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "judge",
+      "id": "evaluate_iteration",
+      "inputs": [
+        "request",
+        "review_findings",
+        "review_summary",
+        "curated_findings",
+        "fix_plan",
+        "implementation_report",
+        "evidence",
+        "judge_result",
+        "iteration_policy"
+      ],
+      "outputs": ["iteration_status"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Evaluate whether another bounded remediation round is worthwhile",
+      "agent_id": "judge",
+      "prompt_file": "prompts/evaluate-iteration.txt",
+      "decision_schema": "iteration_status_v1",
+      "decision_fields": [
+        {
+          "name": "recommended_next_action",
+          "allowed_values": ["continue", "checkpoint", "complete", "escalate", "investigate_cycle"]
+        }
+      ],
+      "route": {
+        "mode": "by_field",
+        "field": "recommended_next_action",
+        "cases": [
+          { "equals": "continue", "continue_loop": "outer_iteration" },
+          { "equals": "checkpoint", "to": "human_iteration_checkpoint" },
+          { "equals": "complete", "to": "docs_update" },
+          { "equals": "investigate_cycle", "to": "prepare_cycle_investigation_request" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "id": "prepare_cycle_investigation_request",
+      "inputs": [
+        "request",
+        "iteration_policy",
+        "review_findings",
+        "review_summary",
+        "curated_findings",
+        "fix_plan",
+        "implementation_report",
+        "evidence",
+        "judge_result",
+        "iteration_status"
+      ],
+      "outputs": ["cycle_investigation_request"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Materialize the cycle-investigation request artifact",
+      "command_file": "scripts/write-cycle-investigation-request.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "cycle_investigation" }
+    },
+    {
+      "kind": "subrun",
+      "id": "cycle_investigation",
+      "inputs": ["cycle_investigation_request"],
+      "outputs": ["cycle_investigation_summary", "cycle_investigation_report"],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Run a wider investigation of the repeated review or remediation cycle",
+      "workflow_ref": {
+        "path": "subruns/investigate-review-cycle/workflow.json"
+      },
+      "request_artifact": "cycle_investigation_request",
+      "summary_artifact": "cycle_investigation_summary",
+      "import_artifacts": {
+        "investigation_report": "cycle_investigation_report"
+      },
+      "route": {
+        "mode": "by_field",
+        "field": "subrun_status",
+        "cases": [
+          { "equals": "complete", "to": "human_cycle_checkpoint" },
+          { "equals": "failed", "to": "__escalate__" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "agent",
+      "id": "docs_update",
+      "inputs": [
+        "request",
+        "curated_findings",
+        "implementation_report",
+        "judge_result",
+        "iteration_status"
+      ],
+      "outputs": ["docs_report"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Update docs if needed",
+      "agent_id": "doc_writer",
+      "prompt_file": "prompts/docs-update.txt",
+      "route": { "mode": "always", "to": "human_signoff" }
+    },
+    {
+      "kind": "human",
+      "id": "human_iteration_checkpoint",
+      "inputs": [
+        "request",
+        "review_findings",
+        "review_summary",
+        "curated_findings",
+        "fix_plan",
+        "implementation_report",
+        "evidence",
+        "judge_result",
+        "iteration_policy",
+        "iteration_status"
+      ],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Iteration checkpoint required",
+      "fields": [
+        {
+          "name": "checkpoint_decision",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["continue", "complete", "escalate"],
+          "description": "Choose whether to continue iterating, finish the session, or escalate.",
+          "example": "continue"
+        },
+        {
+          "name": "checkpoint_notes",
+          "required": true,
+          "kind": "string",
+          "description": "Explain the checkpoint decision and any scope adjustment for the next round.",
+          "example": "Continue with another review pass, but keep the next slice scoped to the same subsystem."
+        }
+      ],
+      "instructions": "Set checkpoint_decision=continue to run another bounded review-and-fix round, checkpoint_decision=complete to move to docs and signoff, or checkpoint_decision=escalate to stop the run. Always provide checkpoint_notes.",
+      "route": {
+        "mode": "by_field",
+        "field": "checkpoint_decision",
+        "cases": [
+          { "equals": "continue", "continue_loop": "outer_iteration" },
+          { "equals": "complete", "to": "docs_update" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "human",
+      "id": "human_cycle_checkpoint",
+      "inputs": [
+        "request",
+        "review_findings",
+        "review_summary",
+        "curated_findings",
+        "fix_plan",
+        "implementation_report",
+        "evidence",
+        "judge_result",
+        "iteration_policy",
+        "iteration_status",
+        "cycle_investigation_summary",
+        "cycle_investigation_report"
+      ],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Repeated review cycle investigated; human decision required",
+      "fields": [
+        {
+          "name": "cycle_decision",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["continue", "complete", "escalate"],
+          "description": "Choose whether to continue with another bounded round, finish the session, or escalate.",
+          "example": "escalate"
+        },
+        {
+          "name": "cycle_notes",
+          "required": true,
+          "kind": "string",
+          "description": "Record the human decision after reviewing the investigation.",
+          "example": "Escalate this to a wider rewrite because the failure mode is architectural."
+        }
+      ],
+      "instructions": "Review the cycle investigation artifacts, then set cycle_decision=continue to allow another bounded round, cycle_decision=complete to stop after the current accepted work, or cycle_decision=escalate to stop the run. Always provide cycle_notes.",
+      "route": {
+        "mode": "by_field",
+        "field": "cycle_decision",
+        "cases": [
+          { "equals": "continue", "continue_loop": "outer_iteration" },
+          { "equals": "complete", "to": "docs_update" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "human",
+      "id": "human_signoff",
+      "inputs": [
+        "curated_findings",
+        "fix_plan",
+        "implementation_report",
+        "evidence",
+        "judge_result",
+        "iteration_policy",
+        "iteration_status",
+        "docs_report"
+      ],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Final human signoff required",
+      "fields": [
+        {
+          "name": "signoff",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["accepted", "changes_requested"],
+          "description": "Choose whether to accept the remediation or send it back for more changes.",
+          "example": "accepted"
+        }
+      ],
+      "instructions": "Set signoff=accepted to complete or signoff=changes_requested to return to implementation.",
+      "route": {
+        "mode": "by_field",
+        "field": "signoff",
+        "cases": [
+          { "equals": "accepted", "to": "__complete__" },
+          { "equals": "changes_requested", "continue_loop": "signoff_rework" }
+        ]
+      }
+    }
+  ],
+  "loops": [
+    {
+      "id": "rescan",
+      "controller_node": "human_curate_findings",
+      "entry_node": "review_scan",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "impl_retry",
+      "controller_node": "judge",
+      "entry_node": "implement_fixes",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "replan",
+      "controller_node": "judge",
+      "entry_node": "fix_plan",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "outer_iteration",
+      "controller_node": "evaluate_iteration",
+      "entry_node": "review_scan",
+      "budget": { "kind": "artifact_field", "artifact": "iteration_policy", "field": "max_round_continuations" },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "signoff_rework",
+      "controller_node": "human_signoff",
+      "entry_node": "implement_fixes",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    }
+  ]
+}

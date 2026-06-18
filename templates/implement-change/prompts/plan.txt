@@ -1,0 +1,1 @@
+Read the request artifact and write a scoped implementation plan. If re-entry context or decision context is present, revise the prior plan using that feedback instead of starting over. Keep it concrete and name the intended files and checks.

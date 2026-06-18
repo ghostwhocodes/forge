@@ -1,0 +1,20 @@
+Read the request artifact, typed QA governance artifact, and structured
+`qa_gap_findings` artifact.
+
+Write a concise markdown summary to the `qa_gap_summary` artifact for human
+curation.
+
+Structure the summary as:
+
+1. **Overview** — one paragraph on the current QA confidence posture
+2. **Priority gaps** — numbered list covering each finding id, category,
+   severity, and plain-language explanation of why it still matters
+3. **Recommended next step** — say whether the operator should package gaps,
+   rescan, or complete, and why
+
+Keep the summary focused on meaningful confidence gaps and avoid turning it
+into a file inventory.
+
+Make the next human decision easy: set `gap_selection_status` to `accepted`
+(package selected QA gaps), `rescan` (rerun detection), or `complete` (no
+remediation package needed).

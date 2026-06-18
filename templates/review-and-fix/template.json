@@ -1,0 +1,31 @@
+{
+  "id": "review-and-fix",
+  "version": 1,
+  "display_name": "Review And Fix",
+  "description": "Review and remediation workflow with explicit finding curation, bounded iteration policy, and sparse human checkpoints.",
+  "workflow": "workflow.json",
+  "supports_intake": ["review_fix"],
+  "tags": ["review", "remediation", "default"],
+  "recommended_hooks": ["hooks/notify"],
+  "recommended_outputs": {
+    "scaffold_dir": ".forge"
+  },
+  "prompt_files": [
+    "prompts/review-scan.txt",
+    "prompts/write-findings.txt",
+    "prompts/fix-plan.txt",
+    "prompts/implement-fixes.txt",
+    "prompts/judge.txt",
+    "prompts/evaluate-iteration.txt",
+    "prompts/docs-update.txt"
+  ],
+  "hook_files": [
+    "hooks/notify"
+  ],
+  "script_files": [
+    "scripts/lib.sh",
+    "scripts/capture-selection.sh",
+    "scripts/collect-evidence.sh",
+    "scripts/write-iteration-policy.sh"
+  ]
+}

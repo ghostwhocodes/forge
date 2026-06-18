@@ -1,0 +1,33 @@
+{
+  "request_kind": "review_request",
+  "repo_root": "/abs/path/to/repo",
+  "goal": "Review the current branch for correctness issues and actionable risks.",
+  "sources": [
+    {
+      "kind": "inline_text",
+      "label": "user_request",
+      "content": "Please review the code and report the problems you find."
+    }
+  ],
+  "scope_paths": [],
+  "constraints": [
+    "Prioritize bugs, regressions, and missing tests."
+  ],
+  "non_goals": [
+    "Do not rewrite the branch unless explicitly asked."
+  ],
+  "acceptance_criteria": [
+    "Findings are concrete, actionable, and grounded in the current codebase.",
+    "The review summary is understandable without replaying the whole scan."
+  ],
+  "required_checks": [],
+  "review_policy": {
+    "discover_only": true,
+    "fix_discovered_issues": false
+  },
+  "doc_policy": {
+    "update_docs": "never"
+  },
+  "human_notes": [],
+  "selected_findings": []
+}

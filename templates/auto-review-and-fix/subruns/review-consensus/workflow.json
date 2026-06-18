@@ -1,0 +1,148 @@
+{
+  "version": 2,
+  "tool_requirements": {
+    "all_of": ["bash", "codex"]
+  },
+  "routing_mode": "structured",
+  "workflow_id": "auto_review_consensus",
+  "entry_node": "review_scan",
+  "interface": {
+    "inputs": ["review_consensus_request"],
+    "exports": {
+      "accepted_review_findings": {
+        "required": true,
+        "terminal_only": true
+      },
+      "review_audit_result": {
+        "required": true,
+        "terminal_only": true
+      },
+      "consensus_report": {
+        "required": true,
+        "terminal_only": true
+      }
+    }
+  },
+  "agents": {
+    "reviewer": {
+      "display_name": "Auto Reviewer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "auditor": {
+      "display_name": "Review Auditor",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "writer": {
+      "display_name": "Consensus Writer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    }
+  },
+  "artifacts": {
+    "review_consensus_request": {
+      "path": "artifacts/review-consensus-request.json",
+      "media_type": "application/json"
+    },
+    "review_findings": {
+      "path": "artifacts/review-findings.json",
+      "media_type": "application/json",
+      "schema": "review_findings_v1"
+    },
+    "review_audit_result": {
+      "path": "artifacts/review-audit-result.json",
+      "media_type": "application/json"
+    },
+    "accepted_review_findings": {
+      "path": "artifacts/accepted-review-findings.json",
+      "media_type": "application/json",
+      "schema": "review_findings_v1"
+    },
+    "consensus_report": {
+      "path": "artifacts/consensus-report.md",
+      "media_type": "text/markdown"
+    }
+  },
+  "notifications": {},
+  "nodes": [
+    {
+      "kind": "agent",
+      "id": "review_scan",
+      "inputs": ["review_consensus_request"],
+      "outputs": ["review_findings"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Review the repository and propose the next bounded unattended slice",
+      "agent_id": "reviewer",
+      "prompt_file": "prompts/review-scan.txt",
+      "route": { "mode": "always", "to": "audit_review" }
+    },
+    {
+      "kind": "judge",
+      "id": "audit_review",
+      "inputs": ["review_consensus_request", "review_findings"],
+      "outputs": ["review_audit_result", "accepted_review_findings"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Audit the review output before remediation is allowed",
+      "agent_id": "auditor",
+      "prompt_file": "prompts/audit-review.txt",
+      "decision_schema": "review_audit_result_v1",
+      "decision_fields": [
+        {
+          "name": "decision",
+          "allowed_values": ["accept_review", "reject_review", "escalate"]
+        }
+      ],
+      "route": {
+        "mode": "by_field",
+        "field": "decision",
+        "cases": [
+          { "equals": "accept_review", "to": "write_consensus_report" },
+          { "equals": "reject_review", "continue_loop": "review_rework" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "agent",
+      "id": "write_consensus_report",
+      "inputs": [
+        "review_consensus_request",
+        "review_findings",
+        "review_audit_result",
+        "accepted_review_findings"
+      ],
+      "outputs": ["consensus_report"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Write the accepted review-consensus report",
+      "agent_id": "writer",
+      "prompt_file": "prompts/write-consensus-report.txt",
+      "route": { "mode": "always", "to": "__complete__" }
+    }
+  ],
+  "loops": [
+    {
+      "id": "review_rework",
+      "controller_node": "audit_review",
+      "entry_node": "review_scan",
+      "budget": {
+        "kind": "artifact_field",
+        "artifact": "review_consensus_request",
+        "field": "review_consensus_max_rejections"
+      },
+      "on_exhaust": { "to": "__escalate__" }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+Investigate whether the parent auto-review-and-fix workflow is still making sound engineering progress or whether repeated unattended fixes are turning into a rabbit hole.
+
+The request artifact includes the original intake request plus a `rabbit_hole_context` object with the frozen round policy, cumulative iteration status, accepted review findings, review audit result, implementation report, evidence, verification result, checkpoint record, and any packaged governance context.
+
+Operate against the repository named in the request artifact. If your shell does not already start there, change into `repo_root` before running repository-facing commands. Treat the repository state and the recorded artifacts as authoritative.
+
+Your job is not to continue the normal fix loop. Your job is to decide whether the current automation path is still aligned with the component's intended operating window.
+
+Write Markdown to the `rabbit_hole_report` output path listed below. Include:
+
+1. `Component purpose and current drift`
+   - state the simplest truthful description of the component or subsystem being touched
+   - say whether the latest rounds still fit a low, medium, or high complexity budget
+2. `Signals reviewed`
+   - list the concrete rabbit-hole signals you observed or explicitly ruled out
+   - include whether the latest fixes appear to add new modes, hidden state, recovery logic, or environment-coupled branching
+3. `Recommended next move`
+   - choose one of `keep_patching`, `simplify_contract`, `split_responsibilities`, or `design_review`
+   - explain why that move is the smallest honest intervention
+4. `Why automation should continue or stop`
+   - say whether another unattended round still looks sound
+   - if not, explain whether the stop is because the component stabilized or because the design boundary was reached
+5. `Human handoff`
+   - state what the human reviewer should decide next
+   - call out any valid issues that remain real but were intentionally not automated
+
+Keep the report concrete and operational. Do not claim that a redesign has already been performed, and do not turn this into a generic architecture memo detached from the current accepted round.

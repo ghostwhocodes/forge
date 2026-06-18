@@ -1,0 +1,7 @@
+Write a concise human-readable review summary from the structured findings artifact.
+
+If the findings artifact contains actionable findings, summarize them and the residual risks that justify human curation for remediation.
+
+If the findings artifact contains no actionable findings, say that clearly and explain why no further bounded remediation slice is currently justified. Do not imply that fixes were already applied inside the review scan unless the findings artifact explicitly says the repository is already in the desired state before this run.
+
+Write the summary as Markdown to the review_summary output path listed under "# Output Paths" below. The summary should be self-contained and readable without referring back to the raw JSON findings.

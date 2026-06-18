@@ -1,0 +1,19 @@
+Read the request, typed architecture contract, typed decommission ledger, typed
+test-governance artifact, selected boundary findings, and guardrail plan
+artifacts.
+
+Implement the planned guardrail fixes. Write a report to the
+`implementation_report` artifact as markdown with:
+
+1. **Changes made** — list every file modified and what changed, with enough
+   detail for a reviewer to verify scope compliance
+2. **Tests updated** — any test-role markers, contract tests, or governance
+   tests added or changed
+3. **Commands run** — build, test, or lint commands executed and their results
+4. **Residual risks** — anything the plan called for that could not be
+   completed, with rationale
+5. **Scope compliance** — confirm all changes stay within the selected findings
+
+Preserve the contract explicitly, keep changes scoped to the selected findings,
+and update tests, test-role markers, or user-facing surfaces where needed so
+the repaired boundary is observable and hard to regress.

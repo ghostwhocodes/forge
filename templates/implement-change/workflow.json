@@ -1,0 +1,389 @@
+{
+  "version": 2,
+  "tool_requirements": {
+    "all_of": ["bash", "codex"]
+  },
+  "routing_mode": "structured",
+  "workflow_id": "implement_change",
+  "entry_node": "plan",
+  "agents": {
+    "planner": {
+      "display_name": "Planner",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "implementer": {
+      "display_name": "Implementer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "reviewer": {
+      "display_name": "Reviewer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "judge": {
+      "display_name": "Judge",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "doc_writer": {
+      "display_name": "Doc Writer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    }
+  },
+  "artifacts": {
+    "request": {
+      "path": "artifacts/request.json",
+      "media_type": "application/json",
+      "schema": "request_packet_v1"
+    },
+    "plan": {
+      "path": "artifacts/plan.md",
+      "media_type": "text/markdown"
+    },
+    "critique": {
+      "path": "artifacts/critique.md",
+      "media_type": "text/markdown"
+    },
+    "implementation_report": {
+      "path": "artifacts/implementation-report.md",
+      "media_type": "text/markdown"
+    },
+    "review_findings": {
+      "path": "artifacts/review-findings.json",
+      "media_type": "application/json",
+      "schema": "review_findings_v1"
+    },
+    "review_summary": {
+      "path": "artifacts/review-summary.md",
+      "media_type": "text/markdown"
+    },
+    "evidence": {
+      "path": "artifacts/evidence.json",
+      "media_type": "application/json",
+      "schema": "evidence_v1"
+    },
+    "quality_policy": {
+      "path": "artifacts/quality-policy.json",
+      "media_type": "application/json",
+      "schema": "quality_policy_v1"
+    },
+    "quality_gate_result": {
+      "path": "artifacts/quality-gate.json",
+      "media_type": "application/json",
+      "schema": "quality_gate_result_v1"
+    },
+    "warnings": {
+      "path": "artifacts/warnings.json",
+      "media_type": "application/json",
+      "schema": "workflow_warnings_v1"
+    },
+    "judge_result": {
+      "path": "artifacts/judge.json",
+      "media_type": "application/json",
+      "schema": "judge_result_v1"
+    },
+    "docs_report": {
+      "path": "artifacts/docs-report.md",
+      "media_type": "text/markdown"
+    },
+    "human_feedback": {
+      "path": "artifacts/human-feedback.md",
+      "media_type": "text/markdown"
+    }
+  },
+  "notifications": {
+    "default_hook": {
+      "path": "hooks/notify"
+    },
+    "human_review_hook": {
+      "path": "hooks/notify"
+    }
+  },
+  "nodes": [
+    {
+      "kind": "agent",
+      "id": "plan",
+      "inputs": ["request"],
+      "outputs": ["plan"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Draft the implementation plan",
+      "agent_id": "planner",
+      "prompt_file": "prompts/plan.txt",
+      "route": { "mode": "always", "to": "critique" }
+    },
+    {
+      "kind": "agent",
+      "id": "critique",
+      "inputs": ["request", "plan"],
+      "outputs": ["critique"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Critique the plan",
+      "agent_id": "planner",
+      "prompt_file": "prompts/critique.txt",
+      "route": { "mode": "always", "to": "human_review_plan" }
+    },
+    {
+      "kind": "human",
+      "id": "human_review_plan",
+      "inputs": ["request", "plan", "critique"],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Plan review required",
+      "fields": [
+        {
+          "name": "plan_status",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["approved", "rework"],
+          "description": "Choose whether to approve the plan or send it back for revision.",
+          "example": "approved"
+        }
+      ],
+      "instructions": "Set plan_status=approved to continue or plan_status=rework to return to planning.",
+      "route": {
+        "mode": "by_field",
+        "field": "plan_status",
+        "cases": [
+          { "equals": "approved", "to": "quality_policy" },
+          { "equals": "rework", "continue_loop": "plan_rework" }
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "id": "quality_policy",
+      "inputs": [],
+      "outputs": ["quality_policy"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Freeze the quality policy",
+      "command_file": "scripts/write-quality-policy.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "implement" }
+    },
+    {
+      "kind": "agent",
+      "id": "implement",
+      "inputs": ["request", "plan", "quality_policy"],
+      "outputs": ["implementation_report"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 3 },
+      "message": "Implement the approved plan",
+      "agent_id": "implementer",
+      "prompt_file": "prompts/implement.txt",
+      "route": { "mode": "always", "to": "evidence" }
+    },
+    {
+      "kind": "command",
+      "id": "evidence",
+      "inputs": ["implementation_report"],
+      "outputs": ["evidence"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Collect execution evidence",
+      "command_file": "scripts/collect-evidence.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "review" }
+    },
+    {
+      "kind": "agent",
+      "id": "review",
+      "inputs": ["request", "plan", "implementation_report", "evidence", "quality_policy"],
+      "outputs": ["review_findings", "review_summary"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Review the implementation adversarially",
+      "agent_id": "reviewer",
+      "prompt_file": "prompts/review.txt",
+      "route": { "mode": "always", "to": "quality_gate" }
+    },
+    {
+      "kind": "judge",
+      "id": "quality_gate",
+      "inputs": ["quality_policy", "review_findings", "review_summary"],
+      "outputs": ["quality_gate_result", "warnings"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Decide whether quality is sufficient to proceed",
+      "agent_id": "judge",
+      "prompt_file": "prompts/quality-gate.txt",
+      "decision_schema": "quality_gate_result_v1",
+      "decision_fields": [
+        {
+          "name": "quality_gate_decision",
+          "allowed_values": ["pass", "rework", "escalate"]
+        }
+      ],
+      "route": {
+        "mode": "by_field",
+        "field": "quality_gate_decision",
+        "cases": [
+          { "equals": "pass", "to": "judge" },
+          { "equals": "rework", "continue_loop": "quality_rework" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "agent",
+      "id": "implement_rework",
+      "inputs": [
+        "request",
+        "plan",
+        "quality_policy",
+        "implementation_report",
+        "evidence",
+        "review_findings",
+        "review_summary"
+      ],
+      "outputs": ["implementation_report"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 3 },
+      "message": "Rework the implementation to address review findings",
+      "agent_id": "implementer",
+      "prompt_file": "prompts/implement-rework.txt",
+      "route": { "mode": "always", "to": "evidence" }
+    },
+    {
+      "kind": "judge",
+      "id": "judge",
+      "inputs": [
+        "request",
+        "plan",
+        "quality_policy",
+        "implementation_report",
+        "evidence",
+        "review_findings",
+        "review_summary",
+        "quality_gate_result",
+        "warnings"
+      ],
+      "outputs": ["judge_result"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Judge the result",
+      "agent_id": "judge",
+      "prompt_file": "prompts/judge.txt",
+      "decision_schema": "judge_result_v1",
+      "decision_fields": [
+        {
+          "name": "decision",
+          "allowed_values": ["accept", "replan", "escalate"]
+        }
+      ],
+      "route": {
+        "mode": "by_field",
+        "field": "decision",
+        "cases": [
+          { "equals": "accept", "to": "docs_update" },
+          { "equals": "replan", "continue_loop": "judge_replan" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "agent",
+      "id": "docs_update",
+      "inputs": ["request", "implementation_report", "judge_result", "warnings"],
+      "outputs": ["docs_report"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Update docs if needed",
+      "agent_id": "doc_writer",
+      "prompt_file": "prompts/docs-update.txt",
+      "route": { "mode": "always", "to": "human_signoff" }
+    },
+    {
+      "kind": "human",
+      "id": "human_signoff",
+      "inputs": [
+        "implementation_report",
+        "evidence",
+        "review_summary",
+        "quality_gate_result",
+        "warnings",
+        "judge_result",
+        "docs_report"
+      ],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Final human signoff required",
+      "fields": [
+        {
+          "name": "signoff",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["accepted", "changes_requested"],
+          "description": "Choose whether to accept the implementation or request more changes.",
+          "example": "accepted"
+        },
+        {
+          "name": "feedback",
+          "kind": "string",
+          "description": "Optional inline operator feedback. Required when signoff=changes_requested unless feedback_file is provided.",
+          "example": "Please address the review notes before the next implementation attempt."
+        },
+        {
+          "name": "feedback_file",
+          "kind": "string",
+          "description": "Optional path to a UTF-8 text or markdown file with operator feedback. Required when signoff=changes_requested unless feedback is provided.",
+          "example": "code-review-1.md"
+        }
+      ],
+      "instructions": "Set signoff=accepted to complete. Set signoff=changes_requested to return to implementation and include feedback=TEXT, feedback_file=PATH, or both.",
+      "route": {
+        "mode": "by_field",
+        "field": "signoff",
+        "cases": [
+          { "equals": "accepted", "to": "__complete__" },
+          { "equals": "changes_requested", "continue_loop": "signoff_rework" }
+        ]
+      }
+    }
+  ],
+  "loops": [
+    {
+      "id": "plan_rework",
+      "controller_node": "human_review_plan",
+      "entry_node": "plan",
+      "budget": { "kind": "literal", "max_iterations": 3 },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "quality_rework",
+      "controller_node": "quality_gate",
+      "entry_node": "implement_rework",
+      "budget": { "kind": "literal", "max_iterations": 3 },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "judge_replan",
+      "controller_node": "judge",
+      "entry_node": "human_review_plan",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "signoff_rework",
+      "controller_node": "human_signoff",
+      "entry_node": "implement",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    }
+  ]
+}

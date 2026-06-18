@@ -1,0 +1,35 @@
+Read the request artifact, the typed architecture contract JSON artifact, the
+typed decommission ledger JSON artifact, and the typed test-governance JSON
+artifact.
+
+Review the repository and the current change scope against all three governance
+artifacts. Focus on real architecture drift, not style issues.
+
+Distinguish clearly between:
+
+- desired contract violations
+- lingering legacy behavior that the decommission ledger says should stop being
+  true
+- test-governance ambiguity that is causing architecture drift or preserving
+  legacy compatibility pressure
+
+Each finding must include:
+
+- `id`: a short unique identifier (e.g. the contract id like "C-PROJECTION-READ-ONLY"
+  or a legacy-path id like "implicit_exec_prepare")
+- `category`: one of "contract_violation", "legacy_drift", or "test_governance_ambiguity"
+- `severity`: one of "high", "medium", or "low"
+- `boundary`: which boundary is violated or ambiguous
+- `code_paths`: affected source file paths when known
+- `remediation`: a concrete direction that preserves the contract instead of
+  adding another convenience bypass
+
+Write your output as a JSON object to the `boundary_findings` artifact with:
+
+```json
+{
+  "findings": [ { "id": "...", "category": "...", "severity": "...", "boundary": "...", "code_paths": [...], "remediation": "..." }, ... ]
+}
+```
+
+If no drift is found, write `{"findings": []}`. Do not omit the artifact.

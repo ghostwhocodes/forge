@@ -1,0 +1,61 @@
+Review the repository according to the request artifact and the frozen iteration policy. This node is review-only: inspect the current repository state, run checks as needed, and produce a structured findings artifact describing the currently actionable bounded remediation slice, if any. When this is a later round, keep the scan focused on whether another narrow remediation slice is still worthwhile under the bounded policy rather than expanding into an unrelated broad audit.
+
+When re-entry context includes prior review artifacts or prior iteration status, compare the current findings against that history. Reuse stable finding ids when the same issue is still present, and call out when a finding is genuinely new, reopened, or part of an oscillating pattern where one narrow fix appears to swap one review complaint for another.
+
+Do not implement fixes, stage patches, or edit repository files in this node. Do not pre-consume later workflow phases such as remediation, judge, or iteration evaluation.
+
+Report only issues that remain actionable in the repository's current state. If no bounded remediation slice remains worthwhile, emit an empty `findings` array and explain that no further narrow slice is justified. Do not report findings as already fixed, do not claim remediation has been applied, and do not write multi-round history from inside this node.
+
+It is valid for this review to conclude that no improvement is necessary. You do not have to find something to pass this node. If only marginal, speculative, or low-value improvements remain, emit empty `findings` and explain why no further bounded remediation slice is justified.
+
+Treat environment mismatches as blockers, not puzzles to route around. If the target repository cannot be exercised in place from this session, stop and report that blocker instead of switching to mirrors, alternate build directories, or other workaround modes that would invalidate the consumer run.
+
+The contract for this node is already defined in this prompt. Do not spend review time searching workflow sources, tests, docs, bundled examples, or web results to infer it, and do not use web search. Focus on the repository at `request.repo_root` and emit the required findings artifact.
+
+Converge quickly on the artifact instead of doing a broad repo tour:
+
+1. Start with the smallest signals first:
+   - `git status --short`
+   - if there is a current diff, inspect that changed slice before anything broader
+   - otherwise inspect only the narrow command or module surface most likely to contain the next actionable cleanup slice
+2. Prefer targeted reads tied to a concrete hypothesis over sequentially dumping many files or walking the full repository.
+3. Run at most one broad validation command unless a concrete finding requires additional confirmation.
+4. As soon as you have either one worthwhile bounded remediation slice or a justified "no bounded slice remains" conclusion, write `review_findings` immediately.
+5. If you are several inspection commands in and are still orienting, stop exploring and emit the best findings artifact you can from the evidence already gathered.
+
+A broader repository scan is allowed when needed to decide whether a bounded remediation slice remains. The requirement is not "never scan the repo"; it is "scan intentionally, keep it tied to the current review question, and stop once you have enough evidence to write the artifact."
+
+Avoid these failure modes:
+
+- do not begin with broad repo enumeration unless the smaller signals still leave the next bounded slice unclear
+- do not read large numbers of files end-to-end without a concrete hypothesis
+- do not broaden into a general architecture audit
+- do not delay artifact emission until after an exhaustive scan
+
+Write exactly one JSON object to the review_findings output path listed under "# Output Paths" below with this shape:
+
+```json
+{
+  "findings": [
+    {
+      "id": "F-001",
+      "severity": "low|medium|high",
+      "title": "short title",
+      "file": "path/to/file.rs",
+      "summary": "why this remains actionable now"
+    }
+  ],
+  "summary": "one short paragraph explaining the bounded review outcome",
+  "next_round_worthwhile": true,
+  "bounded_context": "what narrow slice these findings belong to, or why none remains",
+  "blocking_issue": null
+}
+```
+
+Rules for that JSON:
+
+- `findings` must always be present, even when empty
+- keep findings limited to the next worthwhile bounded remediation slice
+- preserve stable finding ids for materially unchanged issues across rounds so later steps can detect convergence or cycles
+- use `blocking_issue` for an environment or execution blocker that prevented a valid repo-local review; otherwise set it to `null`
+- if no worthwhile bounded slice remains, set `findings` to `[]`, set `next_round_worthwhile` to `false`, and explain that in `summary` and `bounded_context`

@@ -1,0 +1,16 @@
+Read the request, round policy, accepted review findings, the structured review audit result, and the consensus report. Produce a concrete fix plan scoped only to the accepted findings for this round.
+
+Write the fix plan as Markdown to the fix_plan output path listed under "# Output Paths" below. The plan should include:
+
+1. **Scope** — which accepted findings this plan addresses and which files are involved
+2. **Steps** — ordered implementation steps with enough detail for an implementer to execute without re-deriving the review intent
+3. **Verification** — commands, tests, or checks that should confirm the fixes
+4. **Risks** — anything that could reopen a prior complaint or shift risk into another subsystem
+
+Keep the slice narrow. Do not widen scope beyond the accepted findings from the current review-consensus round.
+
+Guardrail rules:
+
+- do not introduce new operational modes, hidden state, recovery behavior, or environment-coupled branching unless the accepted audit result clearly justifies a must-fix override
+- if the accepted findings are near a design boundary, compare the direct fix against the simpler contract and explain why the chosen plan still stays inside the operating window
+- if the only plausible implementation path would exceed the operating window, stop and say so instead of inventing a clever workaround

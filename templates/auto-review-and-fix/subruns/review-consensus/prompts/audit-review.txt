@@ -1,0 +1,57 @@
+Audit the reviewer output before the parent workflow is allowed to implement fixes.
+
+Read the packaged review-consensus request and the structured review findings. If re-entry context includes a prior rejected review or prior audit result, compare the current findings against that earlier rejection. The most important failure mode to catch is a reviewer who ignores pushback and returns materially the same rejected review again.
+
+Apply this decision ladder:
+
+1. Is the issue a must-fix safety, correctness, confidentiality, corruption, or false-success problem?
+2. If yes, a simplicity-budget override may be justified.
+3. If not, can the issue be fixed without materially increasing complexity?
+4. If not, would simplifying the component contract make the issue irrelevant or smaller?
+5. If neither a bounded fix nor simplification is clearly authorized, the correct unattended response is to stop or escalate rather than forcing another local patch.
+
+Your job is not just to decide whether the review is specific enough. Your job is to decide whether the proposed response is the right response.
+
+You MUST write a single JSON object to the review_audit_result output path listed under "# Output Paths" below. The object MUST contain at least these fields:
+
+```json
+{
+  "decision": "accept_review",
+  "rationale": "short explanation",
+  "accepted_finding_ids": ["F-001"],
+  "duplicate_after_rejection": false,
+  "rejection_reason": "",
+  "complexity_budget_fit": true,
+  "valid_issue_wrong_response": false,
+  "must_fix_override": false,
+  "recommended_follow_up": "implement|simplify_contract|split_tool|design_review|stop",
+  "governance_context_files": []
+}
+```
+
+The `decision` field MUST be exactly one of:
+
+- `accept_review` — the review is correct enough and safe enough to guide the next unattended action
+- `reject_review` — the review is too weak, too broad, too speculative, or otherwise needs revision before implementation
+- `escalate` — the review dispute now requires human judgment instead of more unattended cycling
+
+Rules:
+
+- if the current review is materially the same as a prior rejected review, set `duplicate_after_rejection=true` and return `decision=escalate`
+- if the review contains no actionable findings and clearly explains why no worthwhile unattended slice remains, it is valid to return `decision=accept_review` with an empty accepted set
+- it is also valid to return `decision=accept_review` with an empty accepted set when the issue is real but the correct unattended outcome is to stop because the remaining local fix would exceed the component's intended operating window
+- keep `accepted_finding_ids` aligned with the findings you consider real and worth acting on in this round
+- set `complexity_budget_fit=false` when the issue is real but the proposed local fix would worsen the design
+- set `valid_issue_wrong_response=true` when the reviewer found something real but chose the wrong unattended move
+- set `must_fix_override=true` only when the finding justifies complexity expansion despite the normal simplicity budget
+- use `split_tool` when the right human follow-up is to separate ownership or responsibilities, and use `design_review` when the next step is redesign-oriented discussion instead of another local patch
+- if governance files were present, list their repo-relative paths in `governance_context_files`
+
+Also write the accepted review findings JSON to the accepted_review_findings output path listed under "# Output Paths" below. It must use the same shape as the review findings artifact, but only for the findings accepted by the auditor. This output is mandatory for every decision, including `reject_review` and `escalate`; never omit it.
+
+Rules for `accepted_review_findings`:
+
+- for `accept_review`, write only the accepted findings from the current review and preserve the review's `governance_assessment`
+- if no worthwhile unattended slice remains, write the same shape with `findings: []`, `next_round_worthwhile: false`, and a `governance_assessment` that explains whether the stop is because the branch stabilized or because the design boundary was reached
+- for `reject_review`, still write the same shape with `findings: []`; set `next_round_worthwhile: true`, explain in `summary` and `bounded_context` that the review must be revised, and use `blocking_issue` to capture the rejection reason
+- for `escalate`, still write the same shape with `findings: []`; set `next_round_worthwhile: false`, explain in `summary` and `bounded_context` that automation is escalating, and use `blocking_issue` to capture the escalation reason

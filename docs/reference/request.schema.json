@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forge.local/schemas/request.schema.json",
+  "title": "Forge Request Packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_kind",
+    "repo_root",
+    "goal",
+    "sources",
+    "constraints",
+    "acceptance_criteria",
+    "required_checks",
+    "review_policy",
+    "doc_policy"
+  ],
+  "properties": {
+    "request_kind": {
+      "type": "string",
+      "enum": [
+        "change_request",
+        "feature_spec",
+        "review_issue",
+        "review_request"
+      ]
+    },
+    "repo_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "scope_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_checks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "review_policy": {
+      "$ref": "#/$defs/review_policy"
+    },
+    "doc_policy": {
+      "$ref": "#/$defs/doc_policy"
+    },
+    "selected_findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/selected_finding"
+      }
+    },
+    "human_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "base_branch": {
+      "type": "string"
+    },
+    "target_branch": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "label"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "inline_text",
+            "file_path",
+            "review_comment_file",
+            "issue_text",
+            "spec_file"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "file_path",
+                  "review_comment_file",
+                  "spec_file"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "inline_text",
+                  "issue_text"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "content"
+            ]
+          }
+        }
+      ]
+    },
+    "review_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discover_only",
+        "fix_discovered_issues"
+      ],
+      "properties": {
+        "discover_only": {
+          "type": "boolean"
+        },
+        "fix_discovered_issues": {
+          "type": "boolean"
+        }
+      }
+    },
+    "doc_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "update_docs"
+      ],
+      "properties": {
+        "update_docs": {
+          "type": "string",
+          "enum": [
+            "never",
+            "if_needed",
+            "always"
+          ]
+        }
+      }
+    },
+    "selected_finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "resolution"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolution": {
+          "type": "string",
+          "enum": [
+            "fix",
+            "defer",
+            "reject"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

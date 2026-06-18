@@ -1,0 +1,305 @@
+{
+  "version": 2,
+  "tool_requirements": {
+    "all_of": ["bash", "codex"]
+  },
+  "routing_mode": "structured",
+  "workflow_id": "architecture_guard",
+  "entry_node": "detect_boundary_drift",
+  "interface": {
+    "inputs": ["request", "architecture_contract"],
+    "exports": {}
+  },
+  "agents": {
+    "reviewer": {
+      "display_name": "Architecture Reviewer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "writer": {
+      "display_name": "Boundary Summary Writer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "planner": {
+      "display_name": "Guardrail Planner",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "implementer": {
+      "display_name": "Guardrail Implementer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "judge": {
+      "display_name": "Architecture Judge",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    }
+  },
+  "artifacts": {
+    "request": {
+      "path": "artifacts/request.json",
+      "media_type": "application/json",
+      "schema": "request_packet_v1"
+    },
+    "architecture_contract": {
+      "path": "artifacts/architecture-contract.md",
+      "media_type": "text/markdown"
+    },
+    "boundary_findings": {
+      "path": "artifacts/boundary-findings.json",
+      "media_type": "application/json",
+      "schema": "boundary_findings_v1"
+    },
+    "boundary_summary": {
+      "path": "artifacts/boundary-summary.md",
+      "media_type": "text/markdown"
+    },
+    "selected_boundary_findings": {
+      "path": "artifacts/selected-boundary-findings.json",
+      "media_type": "application/json",
+      "schema": "selected_boundary_findings_v1"
+    },
+    "guardrail_plan": {
+      "path": "artifacts/guardrail-plan.md",
+      "media_type": "text/markdown"
+    },
+    "implementation_report": {
+      "path": "artifacts/implementation-report.md",
+      "media_type": "text/markdown"
+    },
+    "judge_result": {
+      "path": "artifacts/judge.json",
+      "media_type": "application/json",
+      "schema": "guardrail_judge_result_v1"
+    }
+  },
+  "notifications": {
+    "default_hook": {
+      "path": "hooks/notify"
+    },
+    "human_review_hook": {
+      "path": "hooks/notify"
+    }
+  },
+  "nodes": [
+    {
+      "kind": "agent",
+      "id": "detect_boundary_drift",
+      "inputs": ["request", "architecture_contract"],
+      "outputs": ["boundary_findings"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Detect architecture drift against the contract",
+      "agent_id": "reviewer",
+      "prompt_file": "prompts/detect-boundary-drift.txt",
+      "route": { "mode": "always", "to": "write_boundary_summary" }
+    },
+    {
+      "kind": "agent",
+      "id": "write_boundary_summary",
+      "inputs": ["request", "architecture_contract", "boundary_findings"],
+      "outputs": ["boundary_summary"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Summarize the architecture findings for human curation",
+      "agent_id": "writer",
+      "prompt_file": "prompts/write-boundary-summary.txt",
+      "route": { "mode": "always", "to": "human_curate_findings" }
+    },
+    {
+      "kind": "human",
+      "id": "human_curate_findings",
+      "inputs": ["boundary_findings", "boundary_summary"],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Curate the architecture findings",
+      "fields": [
+        {
+          "name": "finding_selection_status",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["accepted", "rescan", "complete"],
+          "description": "Choose whether to implement fixes, rerun drift detection, or finish without changes.",
+          "example": "accepted"
+        },
+        {
+          "name": "selected_finding_ids",
+          "required": true,
+          "kind": "csv",
+          "description": "Provide comma-separated finding ids or the literal value none.",
+          "example": "ARCH-BOUNDARY-01,ARCH-EVENT-02"
+        },
+        {
+          "name": "selection_notes",
+          "required": true,
+          "kind": "string",
+          "description": "Explain which findings are real and why they were selected or deferred.",
+          "example": "Fix the runtime coupling issue first and defer the lower-priority cleanup."
+        }
+      ],
+      "instructions": "Set finding_selection_status=accepted to continue into guardrail remediation, finding_selection_status=rescan to rerun drift detection, or finding_selection_status=complete when no implementation change is needed. Always provide selected_finding_ids and selection_notes.",
+      "route": {
+        "mode": "by_field",
+        "field": "finding_selection_status",
+        "cases": [
+          { "equals": "accepted", "to": "capture_selection" },
+          { "equals": "rescan", "continue_loop": "rescan" },
+          { "equals": "complete", "to": "__complete__" }
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "id": "capture_selection",
+      "inputs": ["boundary_findings", "boundary_summary"],
+      "outputs": ["selected_boundary_findings"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Materialize the curated boundary findings",
+      "command_file": "scripts/capture-selection.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "plan_guardrail_fix" }
+    },
+    {
+      "kind": "agent",
+      "id": "plan_guardrail_fix",
+      "inputs": [
+        "request",
+        "architecture_contract",
+        "boundary_findings",
+        "boundary_summary",
+        "selected_boundary_findings"
+      ],
+      "outputs": ["guardrail_plan"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Plan the selected guardrail fixes",
+      "agent_id": "planner",
+      "prompt_file": "prompts/plan-guardrail-fix.txt",
+      "route": { "mode": "always", "to": "implement_guardrail_fix" }
+    },
+    {
+      "kind": "agent",
+      "id": "implement_guardrail_fix",
+      "inputs": [
+        "request",
+        "architecture_contract",
+        "selected_boundary_findings",
+        "guardrail_plan"
+      ],
+      "outputs": ["implementation_report"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 3 },
+      "message": "Implement the selected guardrail fixes",
+      "agent_id": "implementer",
+      "prompt_file": "prompts/implement-guardrail-fix.txt",
+      "route": { "mode": "always", "to": "judge_guardrail_fix" }
+    },
+    {
+      "kind": "judge",
+      "id": "judge_guardrail_fix",
+      "inputs": [
+        "architecture_contract",
+        "boundary_findings",
+        "selected_boundary_findings",
+        "guardrail_plan",
+        "implementation_report"
+      ],
+      "outputs": ["judge_result"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Judge whether the guardrail fixes restore the contract",
+      "agent_id": "judge",
+      "prompt_file": "prompts/judge-guardrail-fix.txt",
+      "decision_schema": "guardrail_judge_result_v1",
+      "decision_fields": [
+        {
+          "name": "decision",
+          "allowed_values": ["accept", "replan", "escalate"]
+        }
+      ],
+      "route": {
+        "mode": "by_field",
+        "field": "decision",
+        "cases": [
+          { "equals": "accept", "to": "human_signoff" },
+          { "equals": "replan", "continue_loop": "guardrail_replan" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "human",
+      "id": "human_signoff",
+      "inputs": [
+        "boundary_summary",
+        "selected_boundary_findings",
+        "guardrail_plan",
+        "implementation_report",
+        "judge_result"
+      ],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Final human signoff required",
+      "fields": [
+        {
+          "name": "signoff",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["accepted", "changes_requested"],
+          "description": "Choose whether to accept the guardrail remediation or require more changes.",
+          "example": "accepted"
+        }
+      ],
+      "instructions": "Set signoff=accepted to complete or signoff=changes_requested to send the work back to guardrail planning.",
+      "route": {
+        "mode": "by_field",
+        "field": "signoff",
+        "cases": [
+          { "equals": "accepted", "to": "__complete__" },
+          { "equals": "changes_requested", "continue_loop": "signoff_rework" }
+        ]
+      }
+    }
+  ],
+  "loops": [
+    {
+      "id": "rescan",
+      "controller_node": "human_curate_findings",
+      "entry_node": "detect_boundary_drift",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "guardrail_replan",
+      "controller_node": "judge_guardrail_fix",
+      "entry_node": "plan_guardrail_fix",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "signoff_rework",
+      "controller_node": "human_signoff",
+      "entry_node": "plan_guardrail_fix",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    }
+  ]
+}

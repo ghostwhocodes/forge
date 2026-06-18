@@ -1,0 +1,19 @@
+Judge whether the latest implementation round resolves the accepted review findings using the fix plan, implementation report, and collected evidence. This node decides only whether the current fix round should be accepted, retried, replanned, or escalated. Do not decide whether another broader round should run; that is the job of `evaluate_iteration`.
+
+You MUST write a single JSON object to the judge_result output path listed under "# Output Paths" below. The object MUST contain at least these fields:
+
+```json
+{
+  "decision": "accept",
+  "rationale": "short explanation of the ruling"
+}
+```
+
+The `decision` field MUST be exactly one of:
+
+- `accept` — the round resolves the accepted findings adequately
+- `retry` — the implementation is fixable without changing the plan
+- `replan` — the fix strategy is flawed and the round should return to planning
+- `escalate` — automation should stop and hand the situation to a human
+
+Do not use any other value for `decision`. Downstream routing depends on this exact spelling.

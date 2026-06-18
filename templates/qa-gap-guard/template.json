@@ -1,0 +1,25 @@
+{
+  "id": "qa-gap-guard",
+  "version": 1,
+  "display_name": "QA Gap Guard",
+  "description": "Audit a repository for meaningful testing and verification gaps, curate the real risks, and emit a clean remediation brief plus engineering feedback.",
+  "workflow": "workflow.json",
+  "supports_intake": ["review"],
+  "tags": ["review", "qa", "testing", "guardrails"],
+  "recommended_hooks": ["hooks/notify"],
+  "recommended_outputs": {
+    "scaffold_dir": ".forge"
+  },
+  "prompt_files": [
+    "prompts/detect-qa-gaps.txt",
+    "prompts/write-qa-gap-summary.txt",
+    "prompts/write-gap-closure-brief.txt",
+    "prompts/write-engineering-feedback.txt"
+  ],
+  "hook_files": [
+    "hooks/notify"
+  ],
+  "script_files": [
+    "scripts/capture-selection.sh"
+  ]
+}

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Send a notification message via Telegram bot.
+#
+# Example spec fragment:
+#   "notifications": {
+#     "default_hook": {
+#       "path": "hooks/telegram"
+#     }
+#   }
+#
+# Requires environment variables:
+#   TELEGRAM_BOT_TOKEN  — your bot token from @BotFather
+#   TELEGRAM_CHAT_ID    — target chat/group ID
+#
+# Environment variables available from forge:
+#   FORGE_NOTIFICATION_ID — notification dispatch id
+#   FORGE_SLUG            — run slug
+#   FORGE_RUN_ID          — run identifier
+#   FORGE_WORKFLOW_ID     — workflow id
+#   FORGE_CURRENT_NODE    — current node id when the notification was prepared
+#   FORGE_STAGE           — alias for the current node id
+#   FORGE_MESSAGE         — the notification message (also passed as $1)
+#   FORGE_LEVEL           — COMPLETE or ESCALATE
+#   FORGE_RUN_DIR         — run directory
+#   FORGE_SPEC_FILE       — frozen spec.json path
+#   FORGE_EVENTS_FILE     — append-only events.ndjson path
+
+set -euo pipefail
+
+: "${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN}"
+: "${TELEGRAM_CHAT_ID:?Set TELEGRAM_CHAT_ID}"
+
+LEVEL="${FORGE_LEVEL:-ESCALATE}"
+NODE="${FORGE_CURRENT_NODE:-${FORGE_STAGE:-unknown}}"
+MESSAGE="${1:-${FORGE_MESSAGE:-Workflow update.}}"
+
+TEXT=$(cat <<EOF
+[${LEVEL}] forge ${LEVEL,,}
+Slug: ${FORGE_SLUG:-unknown}
+Run: ${FORGE_RUN_ID:-unknown}
+Workflow: ${FORGE_WORKFLOW_ID:-unknown}
+Node: ${NODE}
+Notification: ${FORGE_NOTIFICATION_ID:-unknown}
+
+${MESSAGE}
+EOF
+)
+
+curl -s -X POST \
+  "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+  -d chat_id="$TELEGRAM_CHAT_ID" \
+  -d text="$TEXT" \
+  > /dev/null
+
+echo "Telegram message sent to chat $TELEGRAM_CHAT_ID ($LEVEL)"

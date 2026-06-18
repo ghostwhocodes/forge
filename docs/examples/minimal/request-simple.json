@@ -1,0 +1,35 @@
+{
+  "request_kind": "change_request",
+  "repo_root": "/abs/path/to/repo",
+  "goal": "Change the database from sqlite to postgres",
+  "sources": [
+    {
+      "kind": "inline_text",
+      "label": "user_request",
+      "content": "Change the database from sqlite to postgres"
+    }
+  ],
+  "scope_paths": [],
+  "constraints": [
+    "Work only inside the target repository."
+  ],
+  "non_goals": [
+    "No unrelated refactors."
+  ],
+  "acceptance_criteria": [
+    "The system uses postgres instead of sqlite where required.",
+    "The implementation report explains what changed and how it was checked."
+  ],
+  "required_checks": [
+    "mvn -q verify"
+  ],
+  "review_policy": {
+    "discover_only": false,
+    "fix_discovered_issues": false
+  },
+  "doc_policy": {
+    "update_docs": "if_needed"
+  },
+  "human_notes": [],
+  "selected_findings": []
+}

@@ -1,0 +1,25 @@
+{
+  "id": "architecture-guard",
+  "version": 1,
+  "display_name": "Architecture Guard",
+  "description": "Detect architecture drift against a typed contract ledger, curate the real boundary findings, and drive guardrail fixes to completion.",
+  "workflow": "workflow.json",
+  "tags": ["architecture", "guardrails", "self-check"],
+  "recommended_hooks": ["hooks/notify"],
+  "recommended_outputs": {
+    "scaffold_dir": ".forge"
+  },
+  "prompt_files": [
+    "prompts/detect-boundary-drift.txt",
+    "prompts/write-boundary-summary.txt",
+    "prompts/plan-guardrail-fix.txt",
+    "prompts/implement-guardrail-fix.txt",
+    "prompts/judge-guardrail-fix.txt"
+  ],
+  "hook_files": [
+    "hooks/notify"
+  ],
+  "script_files": [
+    "scripts/capture-selection.sh"
+  ]
+}

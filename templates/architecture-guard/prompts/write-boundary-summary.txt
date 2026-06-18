@@ -1,0 +1,22 @@
+Read the request, typed architecture contract, typed decommission ledger, typed
+test-governance artifact, and structured boundary findings artifacts.
+
+Write a concise markdown summary to the `boundary_summary` artifact for human
+curation. Prioritize the most important findings and for each one explain
+whether it is:
+
+- a direct contract break
+- a lingering legacy path that should be removed
+- or a test-governance ambiguity that is still pulling toward the old behavior
+
+Structure the summary as:
+
+1. **Overview** — one-paragraph situation summary
+2. **Findings** — numbered list, one per finding from `boundary_findings`,
+   with its id, category, and a short plain-language explanation
+3. **Recommendation** — a clear suggestion of fix, rescan, or complete, with
+   reasoning
+
+Make the next human decision easy: set `finding_selection_status` to `fix`
+(proceed to guardrail remediation), `rescan` (re-run drift detection), or
+`complete` (no changes needed).

@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "ledger_id": "forge_runtime_boundaries_decommission",
+  "contract_id": "forge_runtime_boundaries",
+  "refactor_id": "dispatch_boundary_cleanup",
+  "summary": "Typed decommission ledger for legacy behaviors and temporary coexistence during Forge runtime-boundary cleanup.",
+  "purpose": [
+    "Name the old behaviors and code paths that should stop being true even if they still appear in-tree during the transition.",
+    "Stop future AI implementation sessions from reading convenience compatibility edits as durable architecture intent.",
+    "Give normal prompts and later workflows a bounded source of truth for what may coexist temporarily and what must be removed."
+  ],
+  "defaults": {
+    "dual_path_policy": "forbid_unless_listed",
+    "test_governance": "defer_detailed_schema_to_g1"
+  },
+  "deferred_decisions": [
+    "Detailed typed test governance is intentionally deferred to G1. This ledger may name related tests as evidence, but it is not yet the final source of truth for classifying the whole suite."
+  ],
+  "legacy_paths": [
+    {
+      "id": "implicit_exec_prepare",
+      "status": "scheduled_for_removal",
+      "summary": "Execution surfaces must not prepare dispatches implicitly or execute from projected-only state.",
+      "desired_end_state": "removed",
+      "temporary_allowance": {
+        "allowed": false,
+        "allowed_scope": [],
+        "forbidden_scope": [
+          "forge run exec-dispatch",
+          "forge run auto",
+          "any execution path that appends DispatchPrepared or NotificationPrepared on behalf of a projected action"
+        ],
+        "expiry_condition": null
+      },
+      "contract_ids": [
+        "C-EXEC-REQUIRES-PREPARED",
+        "C-EVENT-ORDERING"
+      ],
+      "surface_refs": [
+        "forge run exec-dispatch",
+        "forge run auto"
+      ],
+      "code_refs": [
+        "src/run.rs",
+        "src/runner.rs",
+        "src/reducer.rs"
+      ],
+      "related_tests": [
+        "run::tests::exec_dispatch_requires_persisted_pending_dispatch"
+      ],
+      "drift_signals": [
+        "exec-dispatch appends a prepare event on its own",
+        "auto reaches process launch without a persisted pending dispatch",
+        "execution begins directly from projected-only state"
+      ],
+      "removal_signals": [
+        "exec-dispatch resolves only replayed persisted pending dispatches",
+        "next or auto persists prepare events before execution",
+        "event histories always show prepare before start for the same dispatch id"
+      ],
+      "prompt_guidance": [
+        "Delete or rewrite this path instead of preserving it for convenience.",
+        "If a change appears to require implicit preparation, revisit the preparation boundary rather than reviving the old execution shortcut."
+      ]
+    },
+    {
+      "id": "projection_prompt_materialization",
+      "status": "scheduled_for_removal",
+      "summary": "Projection and observer surfaces must not assemble prompts, read prompt input bodies, or materialize dispatch files as part of read-only status derivation.",
+      "desired_end_state": "removed",
+      "temporary_allowance": {
+        "allowed": false,
+        "allowed_scope": [],
+        "forbidden_scope": [
+          "dispatch projection",
+          "forge run show-progress",
+          "forge run status",
+          "any helper that derives a projected dispatch before preparation"
+        ],
+        "expiry_condition": null
+      },
+      "contract_ids": [
+        "C-PROJECTION-READ-ONLY"
+      ],
+      "surface_refs": [
+        "forge run show-progress",
+        "forge run status",
+        "project_pending_dispatch"
+      ],
+      "code_refs": [
+        "src/dispatch.rs",
+        "src/run.rs",
+        "src/runner.rs"
+      ],
+      "related_tests": [
+        "dispatch::tests::projected_dispatch_does_not_read_prompt_inputs_until_materialization",
+        "run::tests::show_progress_projects_agent_dispatch_without_reading_prompt_inputs",
+        "run::tests::next_rejects_agent_dispatch_preparation_when_prompt_inputs_are_missing"
+      ],
+      "drift_signals": [
+        "projected dispatch assembly reads prompt input artifact bodies",
+        "show-progress fails because a prompt input artifact body is unreadable",
+        "projection creates files under dispatch/input"
+      ],
+      "removal_signals": [
+        "projection stays limited to ids, paths, commands, env, and message metadata",
+        "prompt assembly occurs only in explicit preparation/materialization helpers",
+        "missing prompt inputs fail during preparation rather than during read-only observation"
+      ],
+      "prompt_guidance": [
+        "Preserve read-only projection even if eager prompt assembly looks simpler.",
+        "Move prompt reads and file writes into preparation helpers rather than teaching observers to depend on them."
+      ]
+    },
+    {
+      "id": "observer_surface_projected_as_ready",
+      "status": "removed",
+      "summary": "Observer surfaces must expose typed readiness state instead of implying execution authority from projected dispatch details alone.",
+      "desired_end_state": "removed",
+      "temporary_allowance": {
+        "allowed": false,
+        "allowed_scope": [],
+        "forbidden_scope": [
+          "exec-dispatch semantics",
+          "prepare/event ordering",
+          "projection prompt reads or prompt materialization"
+        ],
+        "expiry_condition": null
+      },
+      "contract_ids": [
+        "C-SURFACE-HONESTY"
+      ],
+      "surface_refs": [
+        "forge run status",
+        "forge run show-progress",
+        "forge run watch"
+      ],
+      "code_refs": [
+        "src/run.rs"
+      ],
+      "related_tests": [
+        "run::tests::show_progress_projects_dispatch_read_only_when_no_dispatch_is_pending",
+        "run::tests::show_status_projects_dispatch_read_only_when_no_dispatch_is_pending",
+        "run::tests::show_progress_reports_prepared_readiness_after_next",
+        "run::tests::show_progress_reports_active_dispatch_execution"
+      ],
+      "drift_signals": [
+        "observer output claims a dispatch is ready to execute while exec-dispatch would still return no_dispatch",
+        "operator-facing surfaces omit the step needed to persist a prepare event"
+      ],
+      "removal_signals": [
+        "observer surfaces expose readiness as typed state rather than inferred convenience wording",
+        "projected-only readiness is distinguished from prepared execution readiness"
+      ],
+      "prompt_guidance": [
+        "A temporary wording gap in observer surfaces does not justify preserving execution shortcuts.",
+        "Tighten the surface toward typed readiness rather than allowing status output to redefine execution authority."
+      ]
+    }
+  ],
+  "workflow_usage": {
+    "detection_template": "architecture-guard",
+    "intended_primary_inputs": [
+      "request",
+      "architecture_contract",
+      "decommission_ledger"
+    ],
+    "prompt_guidance": [
+      "Read the architecture contract and decommission ledger first.",
+      "Prefer contract truth over compatibility preservation when they conflict.",
+      "Do not maintain dual paths unless the ledger explicitly allows them temporarily."
+    ]
+  }
+}

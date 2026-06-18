@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "routing_mode": "structured",
+  "workflow_id": "parity_runtime",
+  "entry_node": "plan",
+  "interface": {
+    "inputs": []
+  },
+  "agents": {},
+  "artifacts": {
+    "request": {
+      "path": "artifacts/request.json",
+      "media_type": "application/json"
+    }
+  },
+  "nodes": [
+    {
+      "kind": "command",
+      "id": "plan",
+      "inputs": [],
+      "outputs": [],
+      "message": "Run parity command",
+      "command": ["sh", "-c", "printf parity-out; printf parity-err >&2"],
+      "route": { "mode": "always", "to": "__complete__" }
+    }
+  ],
+  "loops": [],
+  "notifications": {}
+}

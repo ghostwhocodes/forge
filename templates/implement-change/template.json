@@ -1,0 +1,30 @@
+{
+  "id": "implement-change",
+  "version": 1,
+  "display_name": "Implement Change",
+  "description": "General implementation workflow with planning, critique, a bounded review and remediation quality loop, documentation, and final signoff.",
+  "workflow": "workflow.json",
+  "supports_intake": ["simple", "spec", "issue"],
+  "tags": ["code", "default"],
+  "recommended_hooks": ["hooks/notify"],
+  "recommended_outputs": {
+    "scaffold_dir": ".forge"
+  },
+  "prompt_files": [
+    "prompts/plan.txt",
+    "prompts/critique.txt",
+    "prompts/implement.txt",
+    "prompts/review.txt",
+    "prompts/quality-gate.txt",
+    "prompts/implement-rework.txt",
+    "prompts/judge.txt",
+    "prompts/docs-update.txt"
+  ],
+  "hook_files": [
+    "hooks/notify"
+  ],
+  "script_files": [
+    "scripts/collect-evidence.sh",
+    "scripts/write-quality-policy.sh"
+  ]
+}

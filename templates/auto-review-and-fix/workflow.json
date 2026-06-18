@@ -1,0 +1,632 @@
+{
+  "version": 2,
+  "tool_requirements": {
+    "all_of": ["bash", "codex", "git"],
+    "any_of": [["jq", "python3"]]
+  },
+  "routing_mode": "structured",
+  "workflow_id": "auto_review_and_fix",
+  "entry_node": "initialize_round_policy",
+  "interface": {
+    "inputs": ["request"],
+    "exports": {}
+  },
+  "agents": {
+    "planner": {
+      "display_name": "Auto Fix Planner",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "implementer": {
+      "display_name": "Auto Fix Implementer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "judge": {
+      "display_name": "Auto Fix Judge",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "writer": {
+      "display_name": "Run Summary Writer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    }
+  },
+  "artifacts": {
+    "request": {
+      "path": "artifacts/request.json",
+      "media_type": "application/json",
+      "schema": "request_packet_v1"
+    },
+    "round_policy": {
+      "path": "artifacts/round-policy.json",
+      "media_type": "application/json"
+    },
+    "iteration_status": {
+      "path": "artifacts/iteration-status.json",
+      "media_type": "application/json"
+    },
+    "governance_context": {
+      "path": "artifacts/governance-context.json",
+      "media_type": "application/json"
+    },
+    "checkpoint_history": {
+      "path": "artifacts/checkpoint-history.md",
+      "media_type": "text/markdown"
+    },
+    "checkpoint_record": {
+      "path": "artifacts/checkpoint-record.json",
+      "media_type": "application/json"
+    },
+    "review_consensus_request": {
+      "path": "artifacts/review-consensus-request.json",
+      "media_type": "application/json"
+    },
+    "review_consensus_summary": {
+      "path": "artifacts/review-consensus-summary.md",
+      "media_type": "text/markdown"
+    },
+    "accepted_review_findings": {
+      "path": "artifacts/accepted-review-findings.json",
+      "media_type": "application/json",
+      "schema": "review_findings_v1"
+    },
+    "review_audit_result": {
+      "path": "artifacts/review-audit-result.json",
+      "media_type": "application/json"
+    },
+    "review_consensus_report": {
+      "path": "artifacts/review-consensus-report.md",
+      "media_type": "text/markdown"
+    },
+    "round_gate_result": {
+      "path": "artifacts/round-gate-result.json",
+      "media_type": "application/json"
+    },
+    "fix_plan": {
+      "path": "artifacts/fix-plan.md",
+      "media_type": "text/markdown"
+    },
+    "implementation_report": {
+      "path": "artifacts/implementation-report.md",
+      "media_type": "text/markdown"
+    },
+    "evidence": {
+      "path": "artifacts/evidence.json",
+      "media_type": "application/json",
+      "schema": "evidence_v1"
+    },
+    "judge_result": {
+      "path": "artifacts/judge.json",
+      "media_type": "application/json",
+      "schema": "judge_result_v1"
+    },
+    "accepted_round_iteration_status": {
+      "path": "artifacts/accepted-round-iteration-status.json",
+      "media_type": "application/json"
+    },
+    "rabbit_hole_gate_result": {
+      "path": "artifacts/rabbit-hole-gate-result.json",
+      "media_type": "application/json"
+    },
+    "rabbit_hole_check_request": {
+      "path": "artifacts/rabbit-hole-check-request.json",
+      "media_type": "application/json"
+    },
+    "rabbit_hole_check_summary": {
+      "path": "artifacts/rabbit-hole-check-summary.md",
+      "media_type": "text/markdown"
+    },
+    "rabbit_hole_check_report": {
+      "path": "artifacts/rabbit-hole-check-report.md",
+      "media_type": "text/markdown"
+    },
+    "last_remediated_findings": {
+      "path": "artifacts/last-remediated-findings.json",
+      "media_type": "application/json",
+      "schema": "review_findings_v1"
+    },
+    "run_summary_context": {
+      "path": "artifacts/run-summary-context.json",
+      "media_type": "application/json"
+    },
+    "run_summary": {
+      "path": "artifacts/run-summary.md",
+      "media_type": "text/markdown"
+    }
+  },
+  "notifications": {
+    "default_hook": {
+      "path": "hooks/notify"
+    },
+    "human_review_hook": {
+      "path": "hooks/notify"
+    }
+  },
+  "nodes": [
+    {
+      "kind": "command",
+      "id": "initialize_round_policy",
+      "inputs": ["request"],
+      "outputs": ["round_policy", "iteration_status"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Freeze the unattended round policy and seed iteration history",
+      "command_file": "scripts/write-round-policy.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "checkpoint_start_state" }
+    },
+    {
+      "kind": "command",
+      "id": "checkpoint_start_state",
+      "inputs": ["request"],
+      "outputs": ["checkpoint_history", "checkpoint_record"],
+      "timeout_ms": 120000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Create a baseline checkpoint if the starting branch is dirty",
+      "command_file": "scripts/checkpoint-start-state.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "freeze_governance_context" }
+    },
+    {
+      "kind": "command",
+      "id": "freeze_governance_context",
+      "inputs": ["request"],
+      "outputs": ["governance_context"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Freeze repo-local governance context for the full unattended run",
+      "command_file": "scripts/freeze-governance-context.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "prepare_review_consensus_request" }
+    },
+    {
+      "kind": "command",
+      "id": "prepare_review_consensus_request",
+      "inputs": [
+        "request",
+        "round_policy",
+        "iteration_status",
+        "checkpoint_history",
+        "governance_context"
+      ],
+      "outputs": ["review_consensus_request"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Package the current run state for the review-consensus child workflow",
+      "command_file": "scripts/prepare-review-consensus-request.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "review_consensus" }
+    },
+    {
+      "kind": "subrun",
+      "id": "review_consensus",
+      "inputs": ["review_consensus_request"],
+      "outputs": [
+        "review_consensus_summary",
+        "accepted_review_findings",
+        "review_audit_result",
+        "review_consensus_report"
+      ],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Run unattended review consensus before choosing a remediation slice",
+      "workflow_ref": {
+        "path": "subruns/review-consensus/workflow.json"
+      },
+      "request_artifact": "review_consensus_request",
+      "summary_artifact": "review_consensus_summary",
+      "import_artifacts": {
+        "accepted_review_findings": "accepted_review_findings",
+        "review_audit_result": "review_audit_result",
+        "consensus_report": "review_consensus_report"
+      },
+      "route": {
+        "mode": "by_field",
+        "field": "subrun_status",
+        "cases": [
+          { "equals": "complete", "to": "decide_round_action" },
+          { "equals": "failed", "to": "__escalate__" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "judge",
+      "id": "decide_round_action",
+      "inputs": [
+        "request",
+        "round_policy",
+        "iteration_status",
+        "accepted_review_findings",
+        "review_audit_result",
+        "review_consensus_report"
+      ],
+      "outputs": ["round_gate_result"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Decide whether the accepted review output should trigger a fix round",
+      "agent_id": "judge",
+      "prompt_file": "prompts/decide-round-action.txt",
+      "decision_schema": "round_gate_result_v1",
+      "decision_fields": [
+        {
+          "name": "decision",
+          "allowed_values": ["implement", "complete", "escalate"]
+        }
+      ],
+      "route": {
+        "mode": "by_field",
+        "field": "decision",
+        "cases": [
+          { "equals": "implement", "to": "fix_plan" },
+          { "equals": "complete", "to": "write_terminal_iteration_status" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "id": "write_terminal_iteration_status",
+      "inputs": [
+        "iteration_status",
+        "round_policy",
+        "round_gate_result"
+      ],
+      "outputs": ["iteration_status"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Record final iteration status when the run completes without another fix round",
+      "command_file": "scripts/write-terminal-iteration-status.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "prepare_run_summary_context" }
+    },
+    {
+      "kind": "agent",
+      "id": "fix_plan",
+      "inputs": [
+        "request",
+        "round_policy",
+        "accepted_review_findings",
+        "review_audit_result",
+        "review_consensus_report"
+      ],
+      "outputs": ["fix_plan"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Plan the accepted remediation slice",
+      "agent_id": "planner",
+      "prompt_file": "prompts/fix-plan.txt",
+      "route": { "mode": "always", "to": "implement_fixes" }
+    },
+    {
+      "kind": "agent",
+      "id": "implement_fixes",
+      "inputs": ["request", "round_policy", "accepted_review_findings", "fix_plan"],
+      "outputs": ["implementation_report"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 3 },
+      "message": "Implement the accepted remediation slice",
+      "agent_id": "implementer",
+      "prompt_file": "prompts/implement-fixes.txt",
+      "route": { "mode": "always", "to": "evidence" }
+    },
+    {
+      "kind": "command",
+      "id": "evidence",
+      "inputs": ["request", "implementation_report"],
+      "outputs": ["evidence"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Collect execution evidence for the latest remediation slice",
+      "command_file": "scripts/collect-evidence.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "verify_fix_round" }
+    },
+    {
+      "kind": "judge",
+      "id": "verify_fix_round",
+      "inputs": [
+        "request",
+        "round_policy",
+        "accepted_review_findings",
+        "fix_plan",
+        "implementation_report",
+        "evidence"
+      ],
+      "outputs": ["judge_result"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Verify whether the latest remediation slice should be accepted",
+      "agent_id": "judge",
+      "prompt_file": "prompts/verify-fix-round.txt",
+      "decision_schema": "judge_result_v1",
+      "decision_fields": [
+        {
+          "name": "decision",
+          "allowed_values": ["accept", "retry", "replan", "escalate"]
+        }
+      ],
+      "route": {
+        "mode": "by_field",
+        "field": "decision",
+        "cases": [
+          { "equals": "retry", "continue_loop": "impl_retry" },
+          { "equals": "replan", "continue_loop": "replan" },
+          { "equals": "accept", "to": "checkpoint_commit" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "id": "checkpoint_commit",
+      "inputs": [
+        "request",
+        "checkpoint_history",
+        "accepted_review_findings",
+        "implementation_report"
+      ],
+      "outputs": [
+        "checkpoint_history",
+        "checkpoint_record",
+        "last_remediated_findings"
+      ],
+      "timeout_ms": 180000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Checkpoint-commit the accepted remediation round",
+      "command_file": "scripts/checkpoint-commit.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "write_accepted_round_iteration_status" }
+    },
+    {
+      "kind": "command",
+      "id": "write_accepted_round_iteration_status",
+      "inputs": [
+        "round_policy",
+        "iteration_status",
+        "accepted_review_findings",
+        "review_audit_result"
+      ],
+      "outputs": ["accepted_round_iteration_status"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Advance the accepted-round counter before rabbit-hole guardrail checks",
+      "command_file": "scripts/write-accepted-round-iteration-status.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "decide_rabbit_hole_check" }
+    },
+    {
+      "kind": "judge",
+      "id": "decide_rabbit_hole_check",
+      "inputs": [
+        "request",
+        "round_policy",
+        "accepted_round_iteration_status",
+        "review_consensus_request",
+        "accepted_review_findings",
+        "review_audit_result",
+        "implementation_report",
+        "evidence",
+        "judge_result",
+        "checkpoint_record"
+      ],
+      "outputs": ["rabbit_hole_gate_result"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Decide whether the latest accepted round needs a rabbit-hole investigation",
+      "agent_id": "judge",
+      "prompt_file": "prompts/decide-rabbit-hole-check.txt",
+      "decision_schema": "rabbit_hole_gate_result_v1",
+      "decision_fields": [
+        {
+          "name": "decision",
+          "allowed_values": ["run_check", "skip_check"]
+        }
+      ],
+      "route": {
+        "mode": "by_field",
+        "field": "decision",
+        "cases": [
+          { "equals": "run_check", "to": "prepare_rabbit_hole_check_request" },
+          { "equals": "skip_check", "to": "write_skipped_rabbit_hole_check" }
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "id": "prepare_rabbit_hole_check_request",
+      "inputs": [
+        "request",
+        "review_consensus_request",
+        "round_policy",
+        "accepted_round_iteration_status",
+        "accepted_review_findings",
+        "review_audit_result",
+        "implementation_report",
+        "evidence",
+        "judge_result",
+        "checkpoint_record"
+      ],
+      "outputs": ["rabbit_hole_check_request"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Package the rabbit-hole investigation request",
+      "command_file": "scripts/write-rabbit-hole-check-request.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "rabbit_hole_check" }
+    },
+    {
+      "kind": "subrun",
+      "id": "rabbit_hole_check",
+      "inputs": ["rabbit_hole_check_request"],
+      "outputs": ["rabbit_hole_check_summary", "rabbit_hole_check_report"],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Run a rabbit-hole investigation before deciding on another unattended round",
+      "workflow_ref": {
+        "path": "subruns/rabbit-hole-check/workflow.json"
+      },
+      "request_artifact": "rabbit_hole_check_request",
+      "summary_artifact": "rabbit_hole_check_summary",
+      "import_artifacts": {
+        "rabbit_hole_report": "rabbit_hole_check_report"
+      },
+      "route": {
+        "mode": "by_field",
+        "field": "subrun_status",
+        "cases": [
+          { "equals": "complete", "to": "evaluate_iteration" },
+          { "equals": "failed", "to": "__escalate__" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "id": "write_skipped_rabbit_hole_check",
+      "inputs": ["rabbit_hole_gate_result"],
+      "outputs": ["rabbit_hole_check_summary", "rabbit_hole_check_report"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Record that the rabbit-hole investigation was skipped for this round",
+      "command_file": "scripts/write-skipped-rabbit-hole-check.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "evaluate_iteration" }
+    },
+    {
+      "kind": "judge",
+      "id": "evaluate_iteration",
+      "inputs": [
+        "request",
+        "round_policy",
+        "iteration_status",
+        "accepted_review_findings",
+        "review_audit_result",
+        "fix_plan",
+        "implementation_report",
+        "evidence",
+        "judge_result",
+        "checkpoint_record",
+        "rabbit_hole_check_report"
+      ],
+      "outputs": ["iteration_status"],
+      "timeout_ms": 600000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Decide whether another unattended review/fix round is worthwhile",
+      "agent_id": "judge",
+      "prompt_file": "prompts/evaluate-iteration.txt",
+      "decision_schema": "iteration_status_v1",
+      "decision_fields": [
+        {
+          "name": "recommended_next_action",
+          "allowed_values": ["continue", "complete", "escalate"]
+        }
+      ],
+      "route": {
+        "mode": "by_field",
+        "field": "recommended_next_action",
+        "cases": [
+          { "equals": "continue", "continue_loop": "outer_iteration" },
+          { "equals": "complete", "to": "prepare_run_summary_context" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "id": "prepare_run_summary_context",
+      "inputs": [],
+      "outputs": ["run_summary_context"],
+      "timeout_ms": 60000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Package remediation context for the final run summary",
+      "command_file": "scripts/prepare-run-summary-context.sh",
+      "capture": "combined",
+      "route": { "mode": "always", "to": "write_run_summary" }
+    },
+    {
+      "kind": "agent",
+      "id": "write_run_summary",
+      "inputs": [
+        "request",
+        "round_policy",
+        "iteration_status",
+        "checkpoint_history",
+        "accepted_review_findings",
+        "review_audit_result",
+        "review_consensus_report",
+        "review_consensus_summary",
+        "run_summary_context"
+      ],
+      "outputs": ["run_summary"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Write the final unattended run summary",
+      "agent_id": "writer",
+      "prompt_file": "prompts/write-run-summary.txt",
+      "route": { "mode": "always", "to": "human_signoff" }
+    },
+    {
+      "kind": "human",
+      "id": "human_signoff",
+      "inputs": ["run_summary", "iteration_status", "checkpoint_history"],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Final human signoff required",
+      "fields": [
+        {
+          "name": "signoff",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["accepted", "escalate"],
+          "description": "Choose whether to accept the unattended run result or escalate it for manual follow-up.",
+          "example": "accepted"
+        }
+      ],
+      "instructions": "Set signoff=accepted to complete the run or signoff=escalate to stop the run for manual follow-up.",
+      "route": {
+        "mode": "by_field",
+        "field": "signoff",
+        "cases": [
+          { "equals": "accepted", "to": "__complete__" },
+          { "equals": "escalate", "to": "__escalate__" }
+        ]
+      }
+    }
+  ],
+  "loops": [
+    {
+      "id": "impl_retry",
+      "controller_node": "verify_fix_round",
+      "entry_node": "implement_fixes",
+      "budget": { "kind": "artifact_field", "artifact": "round_policy", "field": "max_fix_retries" },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "replan",
+      "controller_node": "verify_fix_round",
+      "entry_node": "fix_plan",
+      "budget": { "kind": "artifact_field", "artifact": "round_policy", "field": "max_replans" },
+      "on_exhaust": { "to": "__escalate__" }
+    },
+    {
+      "id": "outer_iteration",
+      "controller_node": "evaluate_iteration",
+      "entry_node": "prepare_review_consensus_request",
+      "budget": { "kind": "artifact_field", "artifact": "round_policy", "field": "max_round_continuations" },
+      "on_exhaust": { "to": "__escalate__" }
+    }
+  ]
+}

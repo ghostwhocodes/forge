@@ -1,0 +1,9 @@
+Update or explain documentation changes needed for the accepted fixes described by the structured curated findings JSON artifact, using iteration status as context for whether the session is finishing after a bounded round.
+
+Write the documentation report as Markdown to the docs_report output path listed under "# Output Paths" below. The report should include:
+
+1. **Documentation changes made** — list of doc files updated with a summary of each change, or an explicit statement that no documentation changes were required
+2. **Rationale** — why each change was needed, or why no changes were necessary given the scope of the fixes
+3. **Outstanding items** — any documentation that should be updated in a future session but is out of scope for this round
+
+If the fixes were purely internal (no API changes, no user-facing behavior changes, no configuration changes), it is valid to report that no documentation updates are needed. Do not fabricate documentation changes.

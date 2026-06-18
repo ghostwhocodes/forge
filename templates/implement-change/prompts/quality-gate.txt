@@ -1,0 +1,26 @@
+Decide whether the latest review result is good enough to proceed. Read the quality policy, review findings, and review summary. If re-entry context includes prior warnings or a prior quality-gate result, use them as the cumulative history for this loop. Treat this node's current attempt number as the review round: if there is no re-entry header, this is round 1; if the re-entry header says Attempt N for node 'quality_gate', this is round N.
+
+Write quality_gate_result JSON with at least quality_gate_decision and rationale, using only pass, rework, or escalate. Use the quality policy to decide the blocking threshold and maximum review cycles. If blocking findings remain and the current review round is still below the configured cycle budget, return quality_gate_decision=rework. If blocking findings remain and the current review round has reached the configured cycle budget, return quality_gate_decision=escalate. Only return pass when the remaining open findings are non-blocking under the policy.
+
+Also write warnings JSON as cumulative loop telemetry. Preserve and update prior history when re-entry context provides earlier warnings. Include at least:
+- review_rounds
+- max_review_cycles
+- blocking_threshold
+- latest_blocking_findings
+- current_blocking_finding_ids
+- seen_blocking_finding_ids
+- resolved_blocking_finding_ids
+- new_findings_after_rework
+- reopened_findings
+- remediation_happened
+- escalated_due_to_cycle_budget
+- warning_messages
+
+When computing these fields:
+- current_blocking_finding_ids should list the stable ids of currently open blocking findings
+- seen_blocking_finding_ids should accumulate every blocking finding id seen in any prior round
+- resolved_blocking_finding_ids should accumulate ids that were blocking in an earlier round and are not blocking now
+- new_findings_after_rework should count current blocking ids that were not present in the prior seen set
+- reopened_findings should count current blocking ids that were previously in resolved_blocking_finding_ids
+
+Keep warning_messages concrete and operational. Frame them as stability or convergence signals, not as a hard diagnosis of the request.

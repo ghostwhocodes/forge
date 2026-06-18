@@ -1,0 +1,1 @@
+Write a concise human-readable review summary from the structured findings artifact. Keep it focused on actionable issues and residual risks.

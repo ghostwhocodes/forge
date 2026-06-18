@@ -1,0 +1,74 @@
+Read the request artifact, the typed QA governance JSON artifact, and the
+current repository state.
+
+Review the repository and the current change scope against the QA governance
+artifact. Identify meaningful confidence gaps in functional terms, not raw
+coverage statistics. Focus on places where the current evidence does not yet
+prove the intended behavior or safety properties.
+
+Examples of worthwhile gap categories include:
+
+- `functional_gap` — required user-visible or system behavior is not actually
+  locked down
+- `error_path_gap` — failure, rollback, recovery, or validation behavior is
+  insufficiently verified
+- `regression_gap` — a brittle or high-risk invariant lacks durable regression
+  coverage
+- `testability_gap` — missing seams or structure make meaningful verification
+  unnecessarily indirect
+- `evidence_gap` — existing tests/checks exist, but they do not prove the claim
+  currently being relied on
+
+Each finding must describe a real remaining confidence gap that a later coding
+run could close directly.
+
+Each finding must include:
+
+- `id`: a short stable identifier like `QA-GAP-001`
+- `severity`: one of `high`, `medium`, or `low`
+- `category`: one of `functional_gap`, `error_path_gap`, `regression_gap`,
+  `testability_gap`, or `evidence_gap`
+- `scope`: the subsystem, feature slice, or workflow area affected
+- `behavior_under_protected`: the intended behavior that is not yet proved well
+- `current_evidence`: concrete evidence inspected, such as named tests,
+  commands, or files
+- `why_insufficient`: why that evidence still leaves a meaningful gap
+- `closure_target`: the concrete proof or change that would close the gap
+- `suggested_locations`: likely source or test paths to touch
+- `prevention_signal`: what future engineering runs should have done earlier to
+  avoid this gap
+
+Write your output as a JSON object to the `qa_gap_findings` artifact with:
+
+```json
+{
+  "findings": [
+    {
+      "id": "QA-GAP-001",
+      "severity": "high",
+      "category": "error_path_gap",
+      "scope": "import rollback",
+      "behavior_under_protected": "the import path should restore the original state when remount fails",
+      "current_evidence": ["tests/import_mount.rs::import_mount_reports_unknown_repo_before_materialization_check"],
+      "why_insufficient": "the current test stops before the rollback branch and does not exercise the remount failure path",
+      "closure_target": "add a deterministic regression test for the remount failure branch and verify no partial state remains",
+      "suggested_locations": ["tests/import_mount.rs", "src/app/mount.rs"],
+      "prevention_signal": "when adding rollback code, add a deterministic failure-path test in the same change"
+    }
+  ],
+  "summary": "short paragraph summarizing the overall QA posture",
+  "overall_confidence": "low|medium|high",
+  "recommended_action": "package_gaps|rescan|complete",
+  "blocking_issue": null
+}
+```
+
+Rules:
+
+- `findings` must always be present, even when empty
+- report only gaps that remain meaningful in the repository's current state
+- do not list stylistic cleanup or low-value assertion churn as QA gaps
+- if there are no meaningful gaps, emit `{"findings":[]}` plus a concrete
+  summary and set `recommended_action` to `complete`
+- use `blocking_issue` only for an environment blocker that prevented a valid
+  repository-local evaluation; otherwise set it to `null`

@@ -1,0 +1,56 @@
+Review the repository according to the packaged review-consensus request. The target repository root is `review_consensus_request.repo_root`. This node is review-only: inspect the current branch state, run checks as needed, and produce a structured findings artifact describing the next worthwhile bounded unattended remediation slice, if one still exists.
+
+Treat `review_consensus_request.automation_context.round_policy`, `iteration_status`, `checkpoint_history_markdown`, and any optional `governance_context` files as part of the operating profile for this run. Do not infer a broader mandate than those materials support.
+
+When re-entry context includes a prior rejected review or a prior audit result, revise the review instead of restating the same weak or already-rejected slice. Reuse stable finding ids when the same issue still exists.
+
+Do not implement fixes, stage patches, or edit repository files in this node.
+
+Before you propose a slice, explicitly calibrate:
+
+1. What is the simplest truthful description of the component or subsystem being touched?
+2. Is that component currently low, medium, or high complexity?
+3. Would the next local fix introduce new operational modes, hidden state, recovery logic, environment-dependent branching, or split-ownership confusion?
+4. Is the issue real but better handled by simplifying the contract instead of layering on another clever fix?
+
+Write exactly one JSON object to the review_findings output path listed under "# Output Paths" below with this shape:
+
+```json
+{
+  "findings": [
+    {
+      "id": "F-001",
+      "severity": "low|medium|high",
+      "title": "short title",
+      "file": "path/to/file.rs",
+      "summary": "why this remains actionable now",
+      "response_class": "must_fix|bounded_fix_ok|valid_but_simpler_contract_preferred"
+    }
+  ],
+  "summary": "one short paragraph explaining the bounded review outcome",
+  "next_round_worthwhile": true,
+  "bounded_context": "what narrow slice these findings belong to, or why none remains",
+  "blocking_issue": null,
+  "governance_assessment": {
+    "component_purpose": "short description",
+    "component_complexity": "low|medium|high",
+    "budget_fit": true,
+    "recommended_next_move": "bounded_fix|simplify_contract|split_responsibilities|design_discussion|stop",
+    "rabbit_hole_signals": [],
+    "governance_context_files": []
+  }
+}
+```
+
+Rules for that JSON:
+
+- `findings` must always be present, even when empty
+- keep findings limited to the next worthwhile unattended slice
+- preserve stable ids for materially unchanged issues across rounds
+- set `response_class` on every finding
+- fill `governance_assessment` even when `findings` is empty
+- if governance files were present, list their repo-relative paths in `governance_assessment.governance_context_files`
+- use `response_class=must_fix` only for safety, correctness, confidentiality, corruption, or false-success issues that justify overriding the simplicity budget
+- use `response_class=bounded_fix_ok` when the issue is real and the next fix still fits the component's operating window
+- use `response_class=valid_but_simpler_contract_preferred` when the issue is real but another unattended patch would likely worsen the design
+- if no worthwhile unattended slice remains, set `findings` to `[]`, set `next_round_worthwhile` to `false`, and explain whether the run is stopping because the branch stabilized or because the remaining valid fixes would exceed the intended complexity budget

@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Post a notification comment on a GitHub issue or PR.
+#
+# Example spec fragment:
+#   "notifications": {
+#     "escalate_hook": {
+#       "path": "hooks/github-comment"
+#     }
+#   }
+#
+# Requires:
+#   - gh CLI authenticated
+#   - FORGE_SLUG in the format "PR-<number>" or set GITHUB_ISSUE explicitly
+#
+# Environment variables available:
+#   FORGE_NOTIFICATION_ID — notification dispatch id
+#   FORGE_SLUG            — run slug
+#   FORGE_RUN_ID          — run identifier
+#   FORGE_WORKFLOW_ID     — workflow id
+#   FORGE_CURRENT_NODE    — current node id when the notification was prepared
+#   FORGE_STAGE           — alias for the current node id
+#   FORGE_MESSAGE         — the notification message (also passed as $1)
+#   FORGE_LEVEL           — COMPLETE or ESCALATE
+#   FORGE_RUN_DIR         — run directory
+#   FORGE_SPEC_FILE       — frozen spec.json path
+#   FORGE_EVENTS_FILE     — append-only events.ndjson path
+
+set -euo pipefail
+
+LEVEL="${FORGE_LEVEL:-ESCALATE}"
+NODE="${FORGE_CURRENT_NODE:-${FORGE_STAGE:-unknown}}"
+MESSAGE="${1:-${FORGE_MESSAGE:-Workflow update.}}"
+
+# Determine issue/PR number
+if [[ -n "${GITHUB_ISSUE:-}" ]]; then
+  ISSUE="$GITHUB_ISSUE"
+elif [[ "${FORGE_SLUG:-}" =~ ^PR-([0-9]+)$ ]]; then
+  ISSUE="${BASH_REMATCH[1]}"
+else
+  echo "warn: cannot determine issue number from slug '${FORGE_SLUG:-}'" >&2
+  echo "      Set GITHUB_ISSUE=<number> or use --slug=PR-<number>" >&2
+  exit 1
+fi
+
+# Pick label by level
+case "$LEVEL" in
+  ESCALATE) LABEL="ACTION NEEDED" ;;
+  COMPLETE) LABEL="COMPLETE" ;;
+  *)        LABEL="INFO" ;;
+esac
+
+BODY=$(cat <<EOF
+### [${LABEL}] forge ${LEVEL,,}
+
+${MESSAGE}
+
+**Run slug:** \`${FORGE_SLUG:-unknown}\`
+**Run id:** \`${FORGE_RUN_ID:-unknown}\`
+**Workflow:** \`${FORGE_WORKFLOW_ID:-unknown}\`
+**Node:** \`${NODE}\`
+**Notification:** \`${FORGE_NOTIFICATION_ID:-unknown}\`
+**Run dir:** \`${FORGE_RUN_DIR:-unknown}\`
+
+---
+*Posted automatically by \`docs/examples/hooks/github-comment\`*
+EOF
+)
+
+gh issue comment "$ISSUE" --body "$BODY"
+echo "Comment posted to issue/PR #$ISSUE ($LEVEL)"

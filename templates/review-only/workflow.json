@@ -1,0 +1,111 @@
+{
+  "version": 2,
+  "tool_requirements": {
+    "all_of": ["bash", "codex"]
+  },
+  "routing_mode": "structured",
+  "workflow_id": "review_only",
+  "entry_node": "review_scan",
+  "agents": {
+    "reviewer": {
+      "display_name": "Reviewer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    },
+    "writer": {
+      "display_name": "Findings Writer",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    }
+  },
+  "artifacts": {
+    "request": {
+      "path": "artifacts/request.json",
+      "media_type": "application/json",
+      "schema": "request_packet_v1"
+    },
+    "review_findings": {
+      "path": "artifacts/review-findings.json",
+      "media_type": "application/json",
+      "schema": "review_findings_v1"
+    },
+    "review_summary": {
+      "path": "artifacts/review-summary.md",
+      "media_type": "text/markdown"
+    }
+  },
+  "notifications": {
+    "default_hook": {
+      "path": "hooks/notify"
+    },
+    "human_review_hook": {
+      "path": "hooks/notify"
+    }
+  },
+  "nodes": [
+    {
+      "kind": "agent",
+      "id": "review_scan",
+      "inputs": ["request"],
+      "outputs": ["review_findings"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Review the repository",
+      "agent_id": "reviewer",
+      "prompt_file": "prompts/review-scan.txt",
+      "route": { "mode": "always", "to": "write_findings" }
+    },
+    {
+      "kind": "agent",
+      "id": "write_findings",
+      "inputs": ["request", "review_findings"],
+      "outputs": ["review_summary"],
+      "timeout_ms": 300000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Write review summary",
+      "agent_id": "writer",
+      "prompt_file": "prompts/write-findings.txt",
+      "route": { "mode": "always", "to": "human_curate_findings" }
+    },
+    {
+      "kind": "human",
+      "id": "human_curate_findings",
+      "inputs": ["review_findings", "review_summary"],
+      "outputs": [],
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Curate discovered findings",
+      "fields": [
+        {
+          "name": "finding_selection_status",
+          "required": true,
+          "kind": "enum",
+          "allowed_values": ["accepted", "rescan"],
+          "description": "Choose whether to accept the current review output or rerun the scan.",
+          "example": "accepted"
+        }
+      ],
+      "instructions": "Set finding_selection_status=accepted to complete the review output or finding_selection_status=rescan to rerun the review scan.",
+      "route": {
+        "mode": "by_field",
+        "field": "finding_selection_status",
+        "cases": [
+          { "equals": "accepted", "to": "__complete__" },
+          { "equals": "rescan", "continue_loop": "rescan" }
+        ]
+      }
+    }
+  ],
+  "loops": [
+    {
+      "id": "rescan",
+      "controller_node": "human_curate_findings",
+      "entry_node": "review_scan",
+      "budget": { "kind": "literal", "max_iterations": 2 },
+      "on_exhaust": { "to": "__escalate__" }
+    }
+  ]
+}

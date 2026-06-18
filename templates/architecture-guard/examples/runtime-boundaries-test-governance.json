@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "governance_id": "forge_runtime_boundaries_test_governance",
+  "contract_id": "forge_runtime_boundaries",
+  "decommission_ledger_id": "forge_runtime_boundaries_decommission",
+  "summary": "Typed test-governance seed for interpreting tests during the Forge runtime-boundary cleanup.",
+  "purpose": [
+    "Define the semantic roles that tests may play during an architecture pivot.",
+    "Separate stable test-role interpretation from the volatile decommission state of a specific refactor.",
+    "Give prompts and future workflows a small, explicit policy for how to treat conflicting tests."
+  ],
+  "role_definitions": [
+    {
+      "role": "contract",
+      "priority": "highest",
+      "description": "Defines future architecture truth that should survive the pivot.",
+      "default_action_when_conflicting_with_legacy_behavior": "prefer_contract",
+      "comment_markers": [
+        "PARAMOUNT CONTRACT TEST"
+      ]
+    },
+    {
+      "role": "legacy_compat",
+      "priority": "lower_than_contract",
+      "description": "Protects old architecture or compatibility behavior that may no longer be intended.",
+      "default_action_when_conflicting_with_contract": "review_for_rewrite_or_removal",
+      "comment_markers": [
+        "LEGACY COMPAT TEST"
+      ]
+    },
+    {
+      "role": "migration",
+      "priority": "temporary",
+      "description": "Protects transition-specific behavior that exists only during the move from old state to new state.",
+      "default_action_when_condition_met": "delete_or_reclassify",
+      "comment_markers": [
+        "MIGRATION TEST"
+      ]
+    }
+  ],
+  "precedence_rules": [
+    "If a contract test conflicts with a legacy compatibility test, the contract test wins and the legacy test must be reviewed.",
+    "Migration tests may temporarily coexist with contract tests, but they must carry an explicit removal or expiry condition in code comments or related refactor notes.",
+    "Passing unclassified tests are evidence of current behavior, not automatic architecture authority."
+  ],
+  "classification_methods": {
+    "primary": [
+      "explicit inline comments near the test"
+    ],
+    "secondary": [
+      "repo-specific path conventions",
+      "repo-specific naming conventions",
+      "explicit lists in typed governance artifacts"
+    ],
+    "notes": [
+      "Primary classification should work in languages and frameworks that keep tests inline with production code, such as Rust.",
+      "Secondary hints may help automation, but they are not the primary source of truth."
+    ]
+  },
+  "fallback_policy": {
+    "unclassified_test_behavior": "requires_review_when_in_conflict",
+    "default_prompt_guidance": [
+      "Do not treat unclassified tests as automatic architecture truth when they conflict with the typed architecture contract.",
+      "If a test appears to protect legacy behavior, check the decommission ledger before preserving that path.",
+      "Prefer adding an explicit role comment when touching a strategically important test during the pivot."
+    ]
+  },
+  "repo_rules": {
+    "repo_style_notes": [
+      "This repository uses Rust, where many tests live inline in source files.",
+      "Do not assume directory-based test classification is sufficient."
+    ],
+    "annotation_expectations": [
+      "Use comment markers immediately above or adjacent to the relevant test when practical.",
+      "Keep role comments concise and specific to the reason the test matters."
+    ]
+  },
+  "current_examples": [
+    {
+      "test_ref": "dispatch::tests::projected_dispatch_does_not_read_prompt_inputs_until_materialization",
+      "role": "contract",
+      "evidence": [
+        "src/dispatch.rs contains the PARAMOUNT CONTRACT TEST marker for this test."
+      ]
+    },
+    {
+      "test_ref": "run::tests::show_progress_projects_agent_dispatch_without_reading_prompt_inputs",
+      "role": "contract",
+      "evidence": [
+        "src/run.rs contains the PARAMOUNT CONTRACT TEST marker for this test."
+      ]
+    },
+    {
+      "test_ref": "run::tests::exec_dispatch_requires_persisted_pending_dispatch",
+      "role": "contract",
+      "evidence": [
+        "src/run.rs contains the PARAMOUNT CONTRACT TEST marker for this test."
+      ]
+    },
+    {
+      "test_ref": "run::tests::show_status_projects_dispatch_read_only_when_no_dispatch_is_pending",
+      "role": "contract",
+      "evidence": [
+        "src/run.rs contains the PARAMOUNT CONTRACT TEST marker for this test."
+      ]
+    },
+    {
+      "test_ref": "run::tests::show_progress_reports_prepared_readiness_after_next",
+      "role": "contract",
+      "evidence": [
+        "src/run.rs contains the PARAMOUNT CONTRACT TEST marker for this test."
+      ]
+    },
+    {
+      "test_ref": "run::tests::show_progress_reports_active_dispatch_execution",
+      "role": "contract",
+      "evidence": [
+        "src/run.rs contains the PARAMOUNT CONTRACT TEST marker for this test."
+      ]
+    },
+    {
+      "test_ref": "reducer::tests::rejects_dispatch_succeeded_without_prior_start_event",
+      "role": "contract",
+      "evidence": [
+        "src/reducer.rs contains the PARAMOUNT CONTRACT TEST marker for this test."
+      ]
+    },
+    {
+      "test_ref": "reducer::tests::rejects_launched_dispatch_failure_without_prior_start_event",
+      "role": "contract",
+      "evidence": [
+        "src/reducer.rs contains the PARAMOUNT CONTRACT TEST marker for this test."
+      ]
+    },
+    {
+      "test_ref": "dispatch::tests::command_materialization_uses_projected_output_paths_without_reresolving_spec_outputs",
+      "role": "contract",
+      "evidence": [
+        "src/dispatch.rs contains the PARAMOUNT CONTRACT TEST marker for this test."
+      ]
+    }
+  ],
+  "workflow_usage": {
+    "intended_primary_inputs": [
+      "request",
+      "architecture_contract",
+      "decommission_ledger",
+      "test_governance"
+    ],
+    "prompt_guidance": [
+      "Read test governance after the architecture contract and decommission ledger.",
+      "Prefer contract tests over legacy compatibility tests when they conflict.",
+      "Treat migration tests as temporary and review expiry conditions before preserving them."
+    ]
+  }
+}

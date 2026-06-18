@@ -1,0 +1,26 @@
+Read the request artifact, typed QA governance artifact, full QA gap findings,
+curated `selected_qa_gaps`, and the `gap_closure_brief`.
+
+Write a concise markdown self-improvement summary to the
+`engineering_feedback` artifact for future engineering runs.
+
+This artifact is about prevention, not about re-describing the selected gaps.
+
+Structure it as:
+
+1. **What was missed early** — the verification work that should have happened
+   during the original implementation
+2. **Patterns to change** — repeated engineering behaviors that led to these QA
+   gaps
+3. **Default future behaviors** — concrete habits the engineering agent should
+   follow next time
+
+Cover themes such as:
+
+- adding the right tests in the same change rather than after review
+- testing the real behavioral claim instead of a nearby proxy
+- introducing deterministic seams for failure-path and adapter-boundary tests
+- preferring functional proof over raw coverage movement
+- noticing when code structure makes meaningful verification too indirect
+
+Keep it compact, concrete, and reusable across later runs.

@@ -1,0 +1,21 @@
+{
+  "id": "review-only",
+  "version": 1,
+  "display_name": "Review Only",
+  "description": "Discovery-only review workflow that scans a repository, summarizes findings, and waits for explicit human curation.",
+  "workflow": "workflow.json",
+  "supports_intake": ["review"],
+  "tags": ["review", "default"],
+  "recommended_hooks": ["hooks/notify"],
+  "recommended_outputs": {
+    "scaffold_dir": ".forge"
+  },
+  "prompt_files": [
+    "prompts/review-scan.txt",
+    "prompts/write-findings.txt"
+  ],
+  "hook_files": [
+    "hooks/notify"
+  ],
+  "script_files": []
+}

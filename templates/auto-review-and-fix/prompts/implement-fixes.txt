@@ -1,0 +1,18 @@
+Implement the accepted fixes inside the target repository according to the accepted review findings, the fix plan, and the unattended round policy. Keep the implementation scoped to the current round.
+
+Do not switch to mirrors, detached worktrees, alternate output directories, or patch-only output if the target repository is not writable in place. Stop and report the blocker instead.
+
+Guardrail rules:
+
+- do not add new modes, hidden state, recovery logic, or environment-coupled branching unless the accepted audit result explicitly indicates a must-fix override
+- if the fix plan says the slice is close to a design boundary, prefer the most boring implementation that still resolves the accepted findings truthfully
+- if the only apparent implementation path would exceed the operating window, stop and report that blocker instead of improvising a more complex patch
+
+Write the implementation report as Markdown to the implementation_report output path listed under "# Output Paths" below. The report should include:
+
+1. **Changes made** — files created, modified, or deleted with a one-line summary of each change
+2. **Commands run** — build, test, or validation commands executed and their outcomes
+3. **Residual risks** — anything not fully resolved or verified
+4. **Scope compliance** — confirmation that the changes stayed within the accepted review slice, or explanation of any deviation
+
+Keep the report factual. Do not claim success for changes that were not actually made or verified.

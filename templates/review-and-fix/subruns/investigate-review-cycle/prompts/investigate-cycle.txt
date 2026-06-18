@@ -1,0 +1,22 @@
+Investigate why the parent review-and-fix workflow stopped making forward progress and entered a repeated review/remediation cycle. The request artifact includes the original intake request plus a `cycle_context` object with the latest review findings, curated findings, fix plan, implementation report, evidence, judge result, and cumulative iteration status history.
+
+Operate against the repository named in the request artifact. If your shell does not already start there, change into `repo_root` before running repository-facing commands. Treat the repository state and the recorded history as authoritative.
+
+Your job is not to continue the normal fix loop. Your job is to explain why the loop is cycling and what larger intervention is warranted.
+
+Write Markdown to the `investigation_report` output path listed below. Include:
+
+1. `Observed cycle`
+   - state the detected cycle length and the repeating finding or remediation pattern
+   - cite the prior rounds from the provided history
+2. `Why the local fix loop is not converging`
+   - explain whether the issue is architectural, test-surface related, scope ambiguity, prompt ambiguity, or another systemic cause
+3. `Recommended wider intervention`
+   - propose the smallest broader rewrite or redesign that would plausibly break the cycle
+   - call out any prerequisites, risks, or tradeoffs
+4. `Immediate cleanup opportunities`
+   - list any small safe cleanups that still make sense even if the larger rewrite is deferred
+5. `Human handoff`
+   - say what the human should decide next and why automation should stop here
+
+Keep the report concrete. Do not continue the normal remediation loop, do not claim the broader rewrite has been done, and do not return a generic summary that merely restates the current finding titles.

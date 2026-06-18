@@ -1,0 +1,54 @@
+{
+  "version": 2,
+  "tool_requirements": {
+    "all_of": ["bash", "codex"]
+  },
+  "routing_mode": "structured",
+  "workflow_id": "auto_review_rabbit_hole_check",
+  "entry_node": "investigate_rabbit_hole",
+  "interface": {
+    "inputs": ["rabbit_hole_check_request"],
+    "exports": {
+      "rabbit_hole_report": {
+        "required": true,
+        "terminal_only": true
+      }
+    }
+  },
+  "agents": {
+    "investigator": {
+      "display_name": "Rabbit-Hole Investigator",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "cwd": "$request.repo_root",
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    }
+  },
+  "artifacts": {
+    "rabbit_hole_check_request": {
+      "path": "artifacts/request.json",
+      "media_type": "application/json"
+    },
+    "rabbit_hole_report": {
+      "path": "artifacts/rabbit-hole-report.md",
+      "media_type": "text/markdown"
+    }
+  },
+  "notifications": {},
+  "nodes": [
+    {
+      "kind": "agent",
+      "id": "investigate_rabbit_hole",
+      "inputs": ["rabbit_hole_check_request"],
+      "outputs": ["rabbit_hole_report"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Investigate whether repeated automated fixes are drifting into a rabbit hole",
+      "agent_id": "investigator",
+      "prompt_file": "prompts/investigate-rabbit-hole.txt",
+      "route": { "mode": "always", "to": "__complete__" }
+    }
+  ],
+  "loops": []
+}

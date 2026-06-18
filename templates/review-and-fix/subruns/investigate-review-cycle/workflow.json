@@ -1,0 +1,53 @@
+{
+  "version": 2,
+  "tool_requirements": {
+    "all_of": ["bash", "codex"]
+  },
+  "routing_mode": "structured",
+  "workflow_id": "investigate_review_cycle",
+  "entry_node": "investigate_cycle",
+  "interface": {
+    "inputs": ["cycle_investigation_request"],
+    "exports": {
+      "investigation_report": {
+        "required": true,
+        "terminal_only": true
+      }
+    }
+  },
+  "agents": {
+    "investigator": {
+      "display_name": "Cycle Investigator",
+      "runner": "codex",
+      "command": ["codex", "exec"],
+      "env": {},
+      "prompt_delivery": "stdin_file"
+    }
+  },
+  "artifacts": {
+    "cycle_investigation_request": {
+      "path": "artifacts/request.json",
+      "media_type": "application/json"
+    },
+    "investigation_report": {
+      "path": "artifacts/investigation-report.md",
+      "media_type": "text/markdown"
+    }
+  },
+  "notifications": {},
+  "nodes": [
+    {
+      "kind": "agent",
+      "id": "investigate_cycle",
+      "inputs": ["cycle_investigation_request"],
+      "outputs": ["investigation_report"],
+      "timeout_ms": 900000,
+      "retry_policy": { "max_attempts": 1 },
+      "message": "Investigate the repeated review or remediation cycle",
+      "agent_id": "investigator",
+      "prompt_file": "prompts/investigate-cycle.txt",
+      "route": { "mode": "always", "to": "__complete__" }
+    }
+  ],
+  "loops": []
+}

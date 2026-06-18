@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "contract_id": "forge_runtime_boundaries",
+  "importance": "paramount",
+  "summary": "Typed runtime-boundary ledger for detecting architecture drift in Forge itself.",
+  "purpose": [
+    "Make architecture constraints machine-readable instead of prose-only.",
+    "Give future AI implementation runs a durable contract artifact to read, review, and preserve.",
+    "Drive dedicated self-check workflows that detect convenience regressions before they become accepted behavior."
+  ],
+  "state_model": {
+    "dispatch_readiness_states": [
+      {
+        "state": "projected",
+        "description": "A dispatch is derivable from the frozen spec and replayed state, but no prepare event has been appended yet.",
+        "executable": false,
+        "required_event": null,
+        "observer_requirement": "Status and progress surfaces must describe this as projected_only and direct the operator to run `forge run next`."
+      },
+      {
+        "state": "prepared",
+        "description": "A pending dispatch or pending notification has been durably recorded in events.ndjson.",
+        "executable": true,
+        "required_event": "DispatchPrepared or NotificationPrepared",
+        "observer_requirement": "Execution surfaces may advertise this as ready for exec-dispatch."
+      },
+      {
+        "state": "executing",
+        "description": "A prepared dispatch has been launched and has a recorded execution state.",
+        "executable": false,
+        "required_event": "DispatchStarted",
+        "observer_requirement": "Observers must render execution progress rather than readiness."
+      }
+    ],
+    "boundary_layers": [
+      {
+        "name": "projection",
+        "must_be_read_only": true,
+        "allowed_operations": [
+          "replay events",
+          "inspect frozen spec",
+          "derive typed projected action",
+          "describe projected readiness"
+        ],
+        "forbidden_operations": [
+          "append events",
+          "create prompt files",
+          "read prompt input artifact bodies",
+          "materialize stdout/stderr/result/progress files"
+        ]
+      },
+      {
+        "name": "preparation",
+        "must_be_durable": true,
+        "allowed_operations": [
+          "append prepare events",
+          "materialize prompt inputs",
+          "create required directories and input files"
+        ],
+        "forbidden_operations": [
+          "launch child processes"
+        ]
+      },
+      {
+        "name": "execution",
+        "must_require_prepared_dispatch": true,
+        "allowed_operations": [
+          "launch an already prepared dispatch",
+          "record execution state",
+          "write stdout/stderr/result/progress files"
+        ],
+        "forbidden_operations": [
+          "implicitly prepare dispatches",
+          "re-decide workflow semantics"
+        ]
+      }
+    ]
+  },
+  "contracts": [
+    {
+      "id": "C-PROJECTION-READ-ONLY",
+      "severity": "critical",
+      "summary": "Dispatch projection must not read prompt inputs or materialize prompt files.",
+      "detection": {
+        "tests": [
+          "dispatch::tests::projected_dispatch_does_not_read_prompt_inputs_until_materialization",
+          "run::tests::show_progress_projects_agent_dispatch_without_reading_prompt_inputs"
+        ],
+        "anti_signals": [
+          "project_pending_dispatch assembles prompts",
+          "show-progress fails because an input artifact body is unreadable",
+          "projection creates files in dispatch/input"
+        ]
+      },
+      "fix_guidance": [
+        "Keep project_pending_dispatch limited to ids, commands, env, input paths, and output paths.",
+        "Move prompt assembly and file writes into explicit materialization helpers called only from preparation paths."
+      ]
+    },
+    {
+      "id": "C-EXEC-REQUIRES-PREPARED",
+      "severity": "critical",
+      "summary": "exec-dispatch must only launch a persisted pending dispatch.",
+      "detection": {
+        "tests": [
+          "run::tests::exec_dispatch_requires_persisted_pending_dispatch"
+        ],
+        "anti_signals": [
+          "exec-dispatch appends DispatchPrepared or NotificationPrepared on its own",
+          "exec-dispatch executes from projected-only state"
+        ]
+      },
+      "fix_guidance": [
+        "Resolve exec-dispatch from replayed persisted state only.",
+        "Require `forge run next` or `forge run auto` to persist prepare events before execution."
+      ]
+    },
+    {
+      "id": "C-SURFACE-HONESTY",
+      "severity": "high",
+      "summary": "Observer surfaces must distinguish projected-only readiness from prepared readiness.",
+      "detection": {
+        "tests": [
+          "run::tests::show_progress_projects_dispatch_read_only_when_no_dispatch_is_pending",
+          "run::tests::show_status_projects_dispatch_read_only_when_no_dispatch_is_pending",
+          "run::tests::show_progress_reports_prepared_readiness_after_next",
+          "run::tests::show_progress_reports_active_dispatch_execution"
+        ],
+        "signals": [
+          "status or progress claims a dispatch is ready to execute while exec-dispatch would still return no_dispatch",
+          "observer output lacks a readiness field or preparation hint"
+        ]
+      },
+      "fix_guidance": [
+        "Render readiness as typed state: projected_only, prepared, executing, terminal.",
+        "When projected_only, include the operator step required to persist the prepare event."
+      ]
+    },
+    {
+      "id": "C-EVENT-ORDERING",
+      "severity": "high",
+      "summary": "Execution events must not bypass the prepare lifecycle.",
+      "detection": {
+        "tests": [
+          "reducer::tests::rejects_dispatch_succeeded_without_prior_start_event",
+          "reducer::tests::rejects_launched_dispatch_failure_without_prior_start_event"
+        ],
+        "signals": [
+          "DispatchStarted exists without an earlier prepare event for the same dispatch id",
+          "NotificationDelivered or DispatchCompleted appears without the corresponding pending record"
+        ]
+      },
+      "fix_guidance": [
+        "Preserve parent-child ordering through explicit event append helpers.",
+        "Keep reducer invariants strict so malformed histories fail loudly."
+      ]
+    }
+  ],
+  "workflow_usage": {
+    "detection_template": "architecture-guard",
+    "primary_inputs": [
+      "request",
+      "architecture_contract",
+      "decommission_ledger",
+      "test_governance"
+    ],
+    "expected_outputs": [
+      "boundary_findings",
+      "boundary_summary",
+      "selected_boundary_findings",
+      "guardrail_plan",
+      "implementation_report",
+      "judge_result"
+    ]
+  }
+}

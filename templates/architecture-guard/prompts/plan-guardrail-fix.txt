@@ -1,0 +1,18 @@
+Read the request, typed architecture contract, typed decommission ledger, typed
+test-governance artifact, boundary findings, boundary summary, and selected
+boundary findings artifacts.
+
+Write a concrete guardrail plan to the `guardrail_plan` artifact as markdown.
+Scope the plan to only the findings listed in `selected_boundary_findings`.
+
+For each selected finding, include:
+
+1. **What** — the boundary to restore
+2. **Where** — specific files and functions to change
+3. **How** — the implementation approach that restores the contract rather than
+   papering over the symptom
+4. **Tests** — any test-role or test-governance updates needed
+5. **Verification** — how to confirm the boundary holds after the fix
+
+Call out any observer-surface updates required to keep the drift from recurring.
+Do not propose changes outside the scope of the selected findings.

@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Example default notification hook: desktop notification + terminal bell
+#
+# Environment variables available:
+#   FORGE_NOTIFICATION_ID — notification dispatch id
+#   FORGE_SLUG            — run slug
+#   FORGE_RUN_ID          — run identifier
+#   FORGE_WORKFLOW_ID     — workflow id
+#   FORGE_CURRENT_NODE    — current node id when the notification was prepared
+#   FORGE_STAGE           — alias for the current node id
+#   FORGE_MESSAGE         — the notification message (also passed as $1)
+#   FORGE_LEVEL           — COMPLETE, ESCALATE, or HUMAN_REVIEW
+#   FORGE_RUN_DIR         — run directory
+#   FORGE_SPEC_FILE       — frozen spec.json path
+#   FORGE_EVENTS_FILE     — append-only events.jsonl path
+
+LEVEL="${FORGE_LEVEL:-ESCALATE}"
+NODE="${FORGE_CURRENT_NODE:-${FORGE_STAGE:-unknown}}"
+MESSAGE="${1:-${FORGE_MESSAGE:-Workflow update}}"
+
+case "$LEVEL" in
+  ESCALATE)
+    URGENCY="critical"
+    ICON="dialog-warning"
+    TITLE="forge — action needed"
+    ;;
+  COMPLETE)
+    URGENCY="normal"
+    ICON="dialog-information"
+    TITLE="forge — complete"
+    ;;
+  HUMAN_REVIEW)
+    URGENCY="low"
+    ICON="dialog-information"
+    TITLE="forge — review pending"
+    ;;
+  *)
+    URGENCY="normal"
+    ICON="dialog-information"
+    TITLE="forge"
+    ;;
+esac
+
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send \
+    --urgency="$URGENCY" \
+    --app-name="forge" \
+    --icon="$ICON" \
+    "$TITLE" \
+    "${MESSAGE}" \
+    "slug=${FORGE_SLUG:-unknown} node=${NODE}"
+else
+  printf '%s [%s] slug=%s node=%s: %s\n' \
+    "$TITLE" \
+    "$LEVEL" \
+    "${FORGE_SLUG:-unknown}" \
+    "$NODE" \
+    "$MESSAGE" >&2
+fi
+
+if [[ "$LEVEL" == "ESCALATE" || "$LEVEL" == "COMPLETE" ]]; then
+  printf '\a'
+fi
