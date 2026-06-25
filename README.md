@@ -1,5 +1,13 @@
 # Forge
 
+<p align="center">
+  <img src="./.github/assets/banner.webp" alt="Forge banner">
+</p>
+
+<p align="center">
+  <a href="https://ghost-who-codes.blog/open-source/forge/">Project page on Ghost Who Codes</a>
+</p>
+
 Forge is a Java CLI and runtime for durable, artifact-driven workflows.
 It is built for long-running engineering tasks that need:
 
