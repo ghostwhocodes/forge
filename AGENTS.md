@@ -4,21 +4,6 @@
 
 Always read `AGENTS.md` first.
 
-For long-horizon tasks, prefer task-local documents under `ai/tasks/<task-slug>/`:
-
-1. `ai/tasks/<task-slug>/Prompt.md`
-2. `ai/tasks/<task-slug>/Contract.md`
-3. `ai/tasks/<task-slug>/Plan.md`
-4. `ai/tasks/<task-slug>/Implement.md`
-5. `ai/tasks/<task-slug>/Documentation.md`
-6. `ai/tasks/<task-slug>/Closeout.md`
-
-Treat task-local `Prompt.md` as the product spec, task-local `Contract.md` as
-the completion boundary, task-local `Plan.md` as advisory milestone
-decomposition, task-local `Implement.md` as the operating runbook, task-local
-`Documentation.md` as the live status log, and task-local `Closeout.md` as the
-structured closeout evidence the wrapper verifies before completion.
-
 ## Project Structure And Module Organization
 
 `forge` is a Java 25 Maven project centered on the CLI in
@@ -55,12 +40,6 @@ Important current architectural rule:
 - `./forge-dev <args>` builds the Maven package and runs the Java launcher.
 - `just ci` is the Java closeout gate.
 - `just ci-logged` runs the same gate and writes logs under `target/validation/`.
-- `./codex/init-long-horizon-task.sh --task <slug>` scaffolds a reusable
-  long-horizon Codex task under `ai/tasks/<slug>/`.
-- `./codex/run-long-horizon.sh --task <slug>` runs the unattended long-horizon
-  Codex wrapper for an existing task.
-- `./codex/start-long-horizon-worktree.sh --task <slug>` creates a dedicated
-  worktree and optionally launches the wrapper there.
 
 Any code change is not complete until `just ci` has been run successfully in the
 workspace after the edit.
@@ -133,26 +112,12 @@ not compatibility obligations.
   do not let god classes or utility-driven coupling grow when a change gives a
   reasonable chance to reduce them
 
-## Long-Horizon Workflow
+## Workflow
 
-- Prefer creating one task directory per long-horizon effort under
-  `ai/tasks/<task-slug>/`.
 - Work one milestone at a time, in the active task plan order.
 - Keep diffs scoped to the current milestone.
 - Run the milestone validation commands before moving on.
 - If validation fails, repair the failure before continuing.
-- Run contract-required validations through
-  `./codex/run-task-command.sh --task <slug> --validation-id <id> -- <command>`
-  so `events.jsonl` records structured evidence.
-- Update the active task `Documentation.md` after every milestone with:
-  - status
-  - decisions made
-  - validation commands run
-  - failures encountered and repairs applied
-  - next milestone
-- Keep `Closeout.md` current once requirement, review, or handoff evidence changes.
-- Default unattended sandbox for this repo is `workspace-write`. Raise it only
-  if the task proves it needs broader filesystem access.
 
 ## Testing Guidelines
 
@@ -176,9 +141,9 @@ that exercises the real command path.
 
 ## Git Hygiene
 
-- Prefer running long-horizon work from a dedicated Git worktree or a clean branch.
-- If existing edits overlap with the current milestone, stop and record the
-  conflict clearly in the active task `Documentation.md` before proceeding.
+- Prefer running substantial work from a dedicated Git worktree or a clean branch.
+- If existing edits overlap with the current milestone, stop and flag the
+  conflict before proceeding.
 
 ## Documentation Responsibilities
 
@@ -188,8 +153,6 @@ Keep the documentation split clean:
 - `QUICKSTART.md`: operator quickstart for humans and agents
 - `docs/USAGE.md`: authoritative command and runtime reference
 - `AGENTS.md`: contributor and coding workflow guidance
-- `ai/tasks/README.md`: task layout for long-horizon Codex work
-- `codex/LONG_HORIZON.md`: long-horizon wrapper flow, contract model, and helper scripts
 
 When CLI behavior, workflow semantics, template behavior, or required
 environment variables change, update the relevant docs in the same change.
@@ -224,7 +187,6 @@ Stop only for a real blocker, such as:
 - required repository context is missing
 - the environment cannot run the required validation commands
 - the milestone cannot be completed without a product decision not covered by
-  the active task `Prompt.md`
+  the active spec
 
-When stopped, record the blocker and the exact next action in the active task
-`Documentation.md`.
+When stopped, record the blocker and the exact next action.
